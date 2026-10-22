@@ -1,0 +1,484 @@
+# id	expression	variables	degrees	values
+unary_power	-2^2		0	-
+right_associative_power	2^3^2		0	-
+negative_power	2^-2		0	-
+arithmetic_precedence	2+3*4		0	-
+hexadecimal_number	0x10+1.5e2		0	-
+unit_precedence	5/2cm		0	-
+unit_parentheses	(5/2)cm		0	-
+unit_power	2cm^2		0	-
+degree_sine	sin(30)		1	-
+degree_inverse_sine	asin(0.5)		1	-
+degree_cosine	cos(30)		1	-
+degree_cosh	cosh(30)		1	-
+degree_cotangent	cot(30)		1	-
+degree_cosecant	csc(30)		1	-
+degree_inverse_hyperbolic_cosine	acosh(2)		1	-
+degree_inverse_hyperbolic_sine	asinh(1)		1	-
+degree_atan2	atan2(1,1)		1	-
+degree_secant	sec(30)		1	-
+degree_sinh	sinh(30)		1	-
+degree_tangent	tan(30)		1	-
+degree_tanh	tanh(30)		1	-
+epsilon_equal	x=y	x,y	0	1,1.0000000000005
+epsilon_not_equal	x=y	x,y	0	1,1.000000000002
+truth_below	!x	x	0	0.49
+truth_at_threshold	!!x	x	0	0.5
+division_by_zero	1/0		0	-
+negative_square_root	sqrt(-1)		0	-
+invalid_logarithm	log(0)		0	-
+invalid_inverse_trig	asin(2)		0	-
+invalid_logarithm_in_expression	log(0)+x	x	0	2
+invalid_square_root_in_expression	sqrt(-1)+x	x	0	2
+invalid_inverse_trig_in_expression	asin(2)+x	x	0	2
+acosh_below_domain	acosh(0)		0	-
+atanh_positive_boundary	atanh(1)		0	-
+atanh_negative_boundary	atanh(-1)		0	-
+atanh_out_of_domain	atanh(2)		0	-
+constant_zero_negative_power	0^-1		0	-
+constant_zero_negative_pow	pow(0,-1)		0	-
+dynamic_zero_negative_power	x^y	x,y	0	0,-1
+dynamic_zero_negative_pow	pow(x,y)	x,y	0	0,-1
+fixed_exponent_zero_base	pow(x,-1)	x	0	0
+zero_to_zero_power	0^0		0	-
+remainder	7%4		0	-
+exp2_fractional	exp2(0.49)		0	-
+exp2_negative_fractional	exp2(-0.49)		0	-
+cbrt_fractional	cbrt(-0.49)		0	-
+cbrt_negative_zero	cbrt(-0)		0	-
+hypot_underflow	hypot(1e-200,1e-200)		0	-
+integer_power_large_positive	pow(1.0000000000000002,2147483647)		0	-
+integer_power_large_negative	pow(1.0000000000000002,-2147483647)		0	-
+power_beyond_windows_long	pow(-1,2147483648)		0	-
+precedence_comparison	1+2*3=7		0	-
+same_variable_division_zero	x/x	x	0	0
+same_variable_division_nonzero	x/x	x	0	2
+same_inline_division	a:=x;a/a	x	0	0
+same_subexpression_division_zero	(x+1)/(x+1)	x	0	-1
+same_callback_division	count(x)/count(x)	x	0	2
+parse_unknown_identifier	missing+1		0	-
+parse_empty_parentheses	()		0	-
+parse_empty_function	sin()		0	-
+parse_extra_function_argument	sin(1,2)		0	-
+parse_too_few_arguments	atan2(1)		0	-
+parse_too_many_arguments	atan2(1,2,3)		0	-
+parse_function_without_parenthesis	sin 1		0	-
+parse_function_missing_parenthesis	sin(1		0	-
+parse_function_argument_eos	sin(		0	-
+parse_premature_end	x+	x	0	-
+parse_missing_parenthesis	(1+2		0	-
+parse_extra_parenthesis	1+2)		0	-
+parse_mismatched_parenthesis	)		0	-
+parse_expected_operator	2 3		0	-
+inline_variables	a:=x+1;b:=a*2;b	x	0	3
+callback_result	count(x)+1	x	0	2
+callback_lazy_if	if(0,count(x),7)	x	0	3
+callback_eager_and	0&count(x)	x	0	3
+callback_eager_or	1|count(x)	x	0	3
+callback_inline	a:=count(x);b:=a+1;b+b	x	0	2
+optimizer_unoptimized_zero_times_callback	0*count(x)	x	0	3
+optimizer_unoptimized_callback_times_zero	count(x)*0	x	0	3
+optimizer_unoptimized_and_callback	0&count(x)	x	0	3
+optimizer_unoptimized_or_callback	1|count(x)	x	0	3
+optimizer_unoptimized_zero_times_error	0*log(-1)		0	-
+linked_parser_square	square(x)	x	0	3
+linked_parser_sum	sum2(x,y)	x,y	0	3,4
+linked_parser_wrong_args	square()		0	-
+linked_parser_extra_args	square(x,y)	x,y	0	3,4
+linked_parser_error	root(x)	x	0	1
+deduce_sorted	z+x+sin(y)	@deduce	0	-
+deduce_inline	a:=x+1;b:=a*2;b	@deduce	0	-
+deduce_constants	pi+x+2cm	@deduce	0	-
+deduce_user_function	count(x)+y	@deduce	0	-
+deduce_unknown_function	unknown(x)	@deduce	0	-
+deduce_unicode	Ω+x	@deduce	0	-
+deduce_emoji	🧪+x	@deduce	0	-
+deduce_unicode_space	x​+y	@deduce	0	-
+parse_unicode_byte_offset	Ω+	Ω	0	-
+unicode_combining_identifier	é+1	é	0	2
+unicode_nonbreaking_space	x +1	x	0	2
+unicode_en_quad	x +1	x	0	2
+unicode_em_quad	x +1	x	0	2
+unicode_en_space	x +1	x	0	2
+unicode_em_space	x +1	x	0	2
+unicode_three_per_em_space	x +1	x	0	2
+unicode_four_per_em_space	x +1	x	0	2
+unicode_six_per_em_space	x +1	x	0	2
+unicode_figure_space	x +1	x	0	2
+unicode_punctuation_space	x +1	x	0	2
+unicode_thin_space	x +1	x	0	2
+unicode_hair_space	x +1	x	0	2
+unicode_narrow_no_break_space	x +1	x	0	2
+unicode_medium_math_space	x +1	x	0	2
+unicode_ideographic_space	x　+1	x	0	2
+optimizer_zero_times_callback	0*count(x)	@optimize:x	0	3
+optimizer_and_callback	0&count(x)	@optimize:x	0	3
+optimizer_or_callback	1|count(x)	@optimize:x	0	3
+optimizer_zero_times_error	0*log(-1)	@optimize:	0	-
+optimizer_callback_times_zero	count(x)*0	@optimize:x	0	3
+optimizer_callback_and_zero	count(x)&0	@optimize:x	0	3
+optimizer_callback_or_one	count(x)|1	@optimize:x	0	3
+optimizer_threshold_and	0.49&count(x)	@optimize:x	0	3
+optimizer_threshold_or	0.5|count(x)	@optimize:x	0	3
+optimizer_x_plus_zero	x+0	@optimize:x	0	5
+optimizer_x_plus_zero_negative_zero	x+0	@optimize:x	0	-0
+optimizer_zero_plus_x_negative_zero	0+x	@optimize:x	0	-0
+optimizer_zero_minus_x_zero	0-x	@optimize:x	0	0
+optimizer_callback_plus_zero	count(x)+0	@optimize:x	0	3
+optimizer_zero_plus_callback	0+count(x)	@optimize:x	0	3
+optimizer_inline_callback	a:=count(x);a+a	@optimize:x	0	3
+optimizer_lazy_if_callback	if(0,count(x),7)	@optimize:x	0	3
+optimizer_x_times_zero	x*0	@optimize:x	0	5
+optimizer_x_times_one_negative_zero	x*1	@optimize:x	0	-0
+optimizer_x_divided_by_one_negative_zero	x/1	@optimize:x	0	-0
+optimizer_x_power_one_negative_zero	x^1	@optimize:x	0	-0
+optimizer_callback_times_one	count(x)*1	@optimize:x	0	3
+optimizer_one_times_callback	1*count(x)	@optimize:x	0	3
+optimizer_callback_divided_by_one	count(x)/1	@optimize:x	0	3
+optimizer_callback_power_one	count(x)^1	@optimize:x	0	3
+optimizer_same_equal_nan	count(x)=count(x)	@optimize:x	0	nan
+optimizer_same_not_equal_nan	count(x)!=count(x)	@optimize:x	0	nan
+optimizer_same_less_nan	count(x)<count(x)	@optimize:x	0	nan
+optimizer_same_less_equal_nan	count(x)<=count(x)	@optimize:x	0	nan
+optimizer_same_greater_nan	count(x)>count(x)	@optimize:x	0	nan
+optimizer_same_greater_equal_nan	count(x)>=count(x)	@optimize:x	0	nan
+optimizer_callback_sum_duplicate	count(x)+count(x)	@optimize:x	0	3
+optimizer_callback_sharing_order	sequence(x)+count(x)+sequence(x)	@optimize:x	0	3
+optimizer_callback_sharing_inline	a:=count(x);count(x)+a	@optimize:x	0	3
+optimizer_callback_product_duplicate	count(x)*count(x)	@optimize:x	0	3
+optimizer_callback_trig_sum	sin(count(x))+cos(count(x))	@optimize:x	0	0.5
+optimizer_callback_sharing_lazy_if_selected	if(x,count(x)+count(x),0)	@optimize:x	0	0.5
+optimizer_callback_sharing_lazy_if_skipped	if(x,count(x)+count(x),0)	@optimize:x	0	0
+optimizer_zero_negative_constant	0*-3	@optimize:	0	-
+optimizer_zero_negative_variable	0*x	@optimize:x	0	-3
+optimizer_negative_variable_times_zero	x*0	@optimize:x	0	-3
+optimizer_negative_zero_times_variable	-0*x	@optimize:x	0	3
+optimizer_variable_times_negative_zero	x*-0	@optimize:x	0	3
+optimizer_trigonometric_identity	sin(asin(x))	@optimize:x	0	0.5
+optimizer_trigonometric_identity_out_of_domain	sin(asin(x))	@optimize:x	0	2
+optimizer_trigonometric_identity_callback	sin(asin(count(x)))	@optimize:x	0	2
+optimizer_trigonometric_identity_degrees	sin(asin(x))	@optimize:x	1	2
+optimizer_cosine_inverse_identity_out_of_domain	cos(acos(x))	@optimize:x	0	2
+optimizer_cosine_inverse_identity_callback	cos(acos(count(x)))	@optimize:x	0	2
+optimizer_tangent_inverse_identity	tan(atan(x))	@optimize:x	0	2
+optimizer_tangent_inverse_large	tan(atan(x))	@optimize:x	0	1e300
+optimizer_hyperbolic_inverse_large	sinh(asinh(x))	@optimize:x	0	1e300
+optimizer_tangent_inverse_callback	tan(atan(count(x)))	@optimize:x	0	1e300
+optimizer_pythagorean_sine_cosine	sin(x)^2+cos(x)^2	@optimize:x	0	0.5
+optimizer_pythagorean_callbacks	sin(count(x))^2+cos(count(x))^2	@optimize:x	0	0.5
+optimizer_pythagorean_pow_builtin	pow(sin(count(x)),2)+pow(cos(count(x)),2)	@optimize:x	0	0.5
+optimizer_pythagorean_products	sin(count(x))*sin(count(x))+cos(count(x))*cos(count(x))	@optimize:x	0	0.5
+optimizer_pythagorean_different_arguments	sin(count(x))^2+cos(count(y))^2	@optimize:x,y	0	0.5,0.5
+optimizer_pythagorean_reverse	cos(x)^2+sin(x)^2	@optimize:x	0	0.5
+optimizer_pythagorean_degrees	sin(x)^2+cos(x)^2	@optimize:x	1	30
+optimizer_hyperbolic_square_difference	cosh(count(x))^2-sinh(count(x))^2	@optimize:x	0	0.5
+optimizer_hyperbolic_products	cosh(count(x))*cosh(count(x))-sinh(count(x))*sinh(count(x))	@optimize:x	0	0.5
+optimizer_exp_log_identity_out_of_domain	exp(log(x))	@optimize:x	0	-1
+optimizer_exp_log_identity_callback	exp(log(count(x)))	@optimize:x	0	-1
+optimizer_sinh_asinh_identity	sinh(asinh(x))	@optimize:x	0	2
+optimizer_cosh_acosh_identity_out_of_domain	cosh(acosh(x))	@optimize:x	0	0.5
+optimizer_tanh_atanh_identity_out_of_domain	tanh(atanh(x))	@optimize:x	0	2
+optimizer_exp2_log2_identity_out_of_domain	exp2(log2(x))	@optimize:x	0	-1
+optimizer_log2_exp2_overflow	log2(exp2(x))	@optimize:x	0	2000
+optimizer_conditional_square_roots	if(x>0,sqrt(x),sqrt(-x))	@optimize:x	0	-2
+optimizer_log_exp_identity	log(exp(x))	@optimize:x	0	1.25
+optimizer_log_exp_overflow	log(exp(x))	@optimize:x	0	1000
+optimizer_sqrt_square_overflow	sqrt(x^2)	@optimize:x	0	1e200
+optimizer_quadratic	x^2+2*x+1	@optimize:x	0	3
+optimizer_zero_to_zero	x^0	@optimize:x	0	0
+optimizer_zero_exponent_callback	count(x)^0	@optimize:x	0	3
+optimizer_pow_zero_exponent_callback	pow(count(x),0)	@optimize:x	0	3
+optimizer_zero_exponent_error	log(-1)^0	@optimize:	0	-
+optimizer_pow_zero_exponent_error	pow(log(-1),0)	@optimize:	0	-
+optimizer_one_base_callback	1^count(x)	@optimize:x	0	3
+optimizer_pow_one_base_callback	pow(1,count(x))	@optimize:x	0	3
+optimizer_one_base_error	1^log(-1)	@optimize:	0	-
+optimizer_pow_one_base_error	pow(1,log(-1))	@optimize:	0	-
+optimizer_repeated_callback_difference	count(x)-count(x)	@optimize:x	0	3
+optimizer_repeated_callback_division	count(x)/count(x)	@optimize:x	0	3
+optimizer_repeated_compound_division	(x+1)/(x+1)	@optimize:x	0	-1
+optimizer_same_constant_division	0/0	@optimize:	0	-
+optimizer_division_by_zero	1/0	@optimize:	0	-
+optimizer_variable_division_by_zero	x/0	@optimize:x	0	2
+optimizer_zero_divided_by_variable	0/x	@optimize:x	0	0
+optimizer_zero_negative_power	0^-1	@optimize:	0	-
+optimizer_invalid_log_alone	log(-1)	@optimize:	0	-
+optimizer_invalid_sqrt_alone	sqrt(-1)	@optimize:	0	-
+optimizer_invalid_asin_alone	asin(2)	@optimize:	0	-
+optimizer_zero_log_with_variable	log(0)+x	@optimize:x	0	2
+optimizer_invalid_sqrt_with_variable	sqrt(-1)+x	@optimize:x	0	2
+optimizer_invalid_asin_with_variable	asin(2)+x	@optimize:x	0	2
+optimizer_same_error_division	log(-1)/log(-1)	@optimize:	0	-
+optimizer_documented_constant_fold	5+x*y-25*4/8	@optimize:x,y	0	2,3
+builtin_abs	abs(-3)		0	-
+builtin_acos	acos(1)		0	-
+builtin_acosh	acosh(1)		0	-
+builtin_asin	asin(0)		0	-
+builtin_asinh	asinh(0)		0	-
+builtin_atan	atan(0)		0	-
+builtin_atan2	atan2(0,1)		0	-
+builtin_atanh	atanh(0)		0	-
+builtin_cbrt	cbrt(-8)		0	-
+builtin_ceil	ceil(1.2)		0	-
+builtin_cos	cos(0)		0	-
+builtin_cosh	cosh(0)		0	-
+builtin_cot	cot(pi/4)		0	-
+builtin_csc	csc(pi/2)		0	-
+builtin_exp	exp(0)		0	-
+builtin_exp2	exp2(3)		0	-
+builtin_floor	floor(1.8)		0	-
+builtin_hypot	hypot(3,4)		0	-
+builtin_if	if(0,1,2)		0	-
+builtin_int	int(-1.5)		0	-
+builtin_log	log(1)		0	-
+builtin_log10	log10(100)		0	-
+builtin_log2	log2(8)		0	-
+builtin_max	max(1,2)		0	-
+builtin_min	min(1,2)		0	-
+builtin_pow	pow(2,3)		0	-
+builtin_sec	sec(0)		0	-
+builtin_sin	sin(pi/2)		0	-
+builtin_sinh	sinh(0)		0	-
+builtin_sqrt	sqrt(4)		0	-
+builtin_tan	tan(0)		0	-
+builtin_tanh	tanh(0)		0	-
+builtin_trunc	trunc(-1.8)		0	-
+optimizer_atan_tan_callback	atan(tan(count(x)))	@optimize:x	0	0.5
+optimizer_abs_tanh_callback	abs(tanh(count(x)))	@optimize:x	0	0.5
+optimizer_tanh_abs_callback	tanh(abs(count(x)))	@optimize:x	0	-0.5
+optimizer_abs_asin_cbrt_negative	abs(asin(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_asin_cbrt_domain_error	abs(asin(cbrt(x)))	@optimize:x	0	-2
+optimizer_abs_asin_sqrt_negative_zero	abs(asin(sqrt(x)))	@optimize:x	0	-0
+optimizer_acos_nested_cosh_domain_error	acos(cosh(cosh(x)))	@optimize:x	0	-0.5
+optimizer_asin_nested_cosh_domain_error	asin(cosh(cosh(x)))	@optimize:x	0	-0.5
+optimizer_acos_nested_exp_constant	acos(exp(exp(x)))	@optimize:x	0	-0.5
+optimizer_asin_nested_exp2_constant	asin(exp2(acos(x)))	@optimize:x	0	0.5
+optimizer_acos_sec_cos_constant	acos(sec(cos(x)))	@optimize:x	0	0.5
+optimizer_asin_sec_cos_constant	asin(sec(cos(x)))	@optimize:x	0	0.5
+optimizer_acos_sec_asin_constant	acos(sec(asin(x)))	@optimize:x	0	0.5
+optimizer_asin_sec_asin_constant	asin(sec(asin(x)))	@optimize:x	0	0.5
+optimizer_acos_sec_atan_constant	acos(sec(atan(x)))	@optimize:x	0	0.5
+optimizer_asin_sec_atan_constant	asin(sec(atan(x)))	@optimize:x	0	0.5
+optimizer_acos_sec_sin_constant	acos(sec(sin(x)))	@optimize:x	0	0.5
+optimizer_asin_sec_sin_constant	asin(sec(sin(x)))	@optimize:x	0	0.5
+optimizer_acos_sec_tanh_constant	acos(sec(tanh(x)))	@optimize:x	0	0.5
+optimizer_asin_sec_tanh_constant	asin(sec(tanh(x)))	@optimize:x	0	0.5
+optimizer_acos_exp_abs_constant	acos(exp(abs(x)))	@optimize:x	0	0.5
+optimizer_asin_exp_abs_constant	asin(exp(abs(x)))	@optimize:x	0	0.5
+optimizer_acos_exp_cbrt_constant	acos(exp(cbrt(x)))	@optimize:x	0	0.5
+optimizer_asin_exp_cbrt_constant	asin(exp(cbrt(x)))	@optimize:x	0	0.5
+optimizer_acos_exp_sqrt_constant	acos(exp(sqrt(x)))	@optimize:x	0	0.5
+optimizer_asin_exp_sqrt_constant	asin(exp(sqrt(x)))	@optimize:x	0	0.5
+optimizer_acos_exp2_abs_constant	acos(exp2(abs(x)))	@optimize:x	0	0.5
+optimizer_asin_exp2_abs_constant	asin(exp2(abs(x)))	@optimize:x	0	0.5
+optimizer_acos_exp2_cbrt_constant	acos(exp2(cbrt(x)))	@optimize:x	0	0.5
+optimizer_asin_exp2_cbrt_constant	asin(exp2(cbrt(x)))	@optimize:x	0	0.5
+optimizer_acos_exp2_sqrt_constant	acos(exp2(sqrt(x)))	@optimize:x	0	0.5
+optimizer_asin_exp2_sqrt_constant	asin(exp2(sqrt(x)))	@optimize:x	0	0.5
+optimizer_acos_abs_cosh_constant	acos(abs(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_abs_cosh_constant	asin(abs(cosh(x)))	@optimize:x	0	0.5
+optimizer_acos_cbrt_cosh_constant	acos(cbrt(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_cbrt_cosh_constant	asin(cbrt(cosh(x)))	@optimize:x	0	0.5
+optimizer_acos_ceil_cosh_constant	acos(ceil(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_ceil_cosh_constant	asin(ceil(cosh(x)))	@optimize:x	0	0.5
+optimizer_acos_floor_cosh_constant	acos(floor(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_floor_cosh_constant	asin(floor(cosh(x)))	@optimize:x	0	0.5
+optimizer_acos_int_cosh_constant	acos(int(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_int_cosh_constant	asin(int(cosh(x)))	@optimize:x	0	0.5
+optimizer_acos_trunc_cosh_constant	acos(trunc(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_trunc_cosh_constant	asin(trunc(cosh(x)))	@optimize:x	0	0.5
+optimizer_acos_sqrt_cosh_constant	acos(sqrt(cosh(x)))	@optimize:x	0	0.5
+optimizer_asin_sqrt_cosh_constant	asin(sqrt(cosh(x)))	@optimize:x	0	0.5
+optimizer_atan_atanh_cosh_constant	atan(atanh(cosh(x)))	@optimize:x	0	0.5
+optimizer_sinh_acosh_cos_constant	sinh(acosh(cos(x)))	@optimize:x	0	0.5
+optimizer_sinh_acosh_sin_constant	sinh(acosh(sin(x)))	@optimize:x	0	0.5
+optimizer_sinh_acosh_tanh_constant	sinh(acosh(tanh(x)))	@optimize:x	0	0.5
+optimizer_tanh_acosh_sin_constant	tanh(acosh(sin(x)))	@optimize:x	0	0.5
+optimizer_tanh_acosh_tanh_constant	tanh(acosh(tanh(x)))	@optimize:x	0	0.5
+optimizer_tanh_atanh_cosh_constant	tanh(atanh(cosh(x)))	@optimize:x	0	0.5
+optimizer_abs_asinh_cbrt_signed	abs(asinh(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_atan_cbrt_signed	abs(atan(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_atanh_cbrt_signed	abs(atanh(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_asin_positive	abs(cbrt(asin(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_atan_positive	abs(cbrt(atan(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_variable_signed	abs(cbrt(x))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_cbrt_signed	abs(cbrt(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_sqrt_signed	abs(cbrt(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_cbrt_sqrt_cot_signed	cbrt(sqrt(cot(x)))	@optimize:x	0	-0.5
+optimizer_cbrt_sqrt_csc_signed	cbrt(sqrt(csc(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_cos_positive	abs(cbrt(cos(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_cot_positive	abs(cbrt(cot(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_csc_positive	abs(cbrt(csc(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_sec_positive	abs(cbrt(sec(x)))	@optimize:x	0	-0.5
+optimizer_abs_cbrt_sin_positive	abs(cbrt(sin(x)))	@optimize:x	0	-0.5
+optimizer_abs_ceil_cbrt_signed	abs(ceil(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_floor_cbrt_signed	abs(floor(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_int_cbrt_signed	abs(int(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_sinh_cbrt_signed	abs(sinh(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_tanh_cbrt_signed	abs(tanh(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_trunc_cbrt_signed	abs(trunc(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_acos_csc_acos_constant	acos(csc(acos(x)))	@optimize:x	0	-0.5
+optimizer_asin_csc_acos_constant	asin(csc(acos(x)))	@optimize:x	0	-0.5
+optimizer_sec_abs_acos_rewrite	sec(abs(acos(x)))	@optimize:x	0	-0.5
+optimizer_atan_tan_acos_rewrite	atan(tan(acos(x)))	@optimize:x	0	-0.5
+optimizer_abs_exp_log_signed	abs(exp(log(x)))	@optimize:x	0	-0.5
+optimizer_abs_exp2_log2_signed	abs(exp2(log2(x)))	@optimize:x	0	-0.5
+optimizer_abs_exp_log2_signed	abs(exp(log2(x)))	@optimize:x	0	-0.5
+optimizer_abs_exp_log10_signed	abs(exp(log10(x)))	@optimize:x	0	-0.5
+optimizer_abs_exp2_log_signed	abs(exp2(log(x)))	@optimize:x	0	-0.5
+optimizer_abs_exp2_log10_signed	abs(exp2(log10(x)))	@optimize:x	0	-0.5
+optimizer_cos_abs_acos_negative_domain	cos(abs(acos(x)))	@optimize:x	0	-2
+optimizer_cos_abs_acos_negative	cos(abs(acos(x)))	@optimize:x	0	-0.5
+optimizer_cos_abs_acos_positive_domain	cos(abs(acos(x)))	@optimize:x	0	2
+optimizer_cot_abs_acos_negative_domain	cot(abs(acos(x)))	@optimize:x	0	-2
+optimizer_cot_abs_acos_negative	cot(abs(acos(x)))	@optimize:x	0	-0.5
+optimizer_cot_abs_acos_negative_zero	cot(abs(acos(x)))	@optimize:x	0	-0
+optimizer_cot_abs_acos_positive_zero	cot(abs(acos(x)))	@optimize:x	0	0
+optimizer_cot_abs_acos_positive	cot(abs(acos(x)))	@optimize:x	0	0.5
+optimizer_cot_abs_acos_positive_domain	cot(abs(acos(x)))	@optimize:x	0	2
+optimizer_cbrt_sqrt_sqrt_negative	cbrt(sqrt(sqrt(x)))	@optimize:x	0	-2
+optimizer_cbrt_sqrt_sqrt_fractional_negative	cbrt(sqrt(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_cbrt_sqrt_sqrt_negative_zero	cbrt(sqrt(sqrt(x)))	@optimize:x	0	-0
+optimizer_cbrt_sqrt_sqrt_positive	cbrt(sqrt(sqrt(x)))	@optimize:x	0	2
+optimizer_cot_atan_sqrt_negative	cot(atan(sqrt(x)))	@optimize:x	0	-2
+optimizer_cot_atan_sqrt_fractional_negative	cot(atan(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_cot_atan_sqrt_negative_zero	cot(atan(sqrt(x)))	@optimize:x	0	-0
+optimizer_cot_atan_sqrt_zero	cot(atan(sqrt(x)))	@optimize:x	0	0
+optimizer_cot_atan_sqrt_positive	cot(atan(sqrt(x)))	@optimize:x	0	0.5
+optimizer_cot_atan_sqrt_large_positive	cot(atan(sqrt(x)))	@optimize:x	0	2
+optimizer_csc_asin_sqrt_negative	csc(asin(sqrt(x)))	@optimize:x	0	-2
+optimizer_csc_asin_sqrt_fractional_negative	csc(asin(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_csc_asin_sqrt_negative_zero	csc(asin(sqrt(x)))	@optimize:x	0	-0
+optimizer_csc_asin_sqrt_zero	csc(asin(sqrt(x)))	@optimize:x	0	0
+optimizer_csc_asin_sqrt_positive	csc(asin(sqrt(x)))	@optimize:x	0	0.5
+optimizer_csc_asin_sqrt_large_positive	csc(asin(sqrt(x)))	@optimize:x	0	2
+optimizer_cot_atan_cot_negative	cot(atan(cot(x)))	@optimize:x	0	-0.5
+optimizer_cot_atan_cot_negative_zero	cot(atan(cot(x)))	@optimize:x	0	-0
+optimizer_cot_atan_cot_positive	cot(atan(cot(x)))	@optimize:x	0	0.5
+optimizer_cot_atan_csc_negative	cot(atan(csc(x)))	@optimize:x	0	-0.5
+optimizer_cot_atan_csc_negative_zero	cot(atan(csc(x)))	@optimize:x	0	-0
+optimizer_cot_atan_csc_positive	cot(atan(csc(x)))	@optimize:x	0	0.5
+optimizer_csc_asin_cot_negative	csc(asin(cot(x)))	@optimize:x	0	-0.5
+optimizer_csc_asin_cot_negative_zero	csc(asin(cot(x)))	@optimize:x	0	-0
+optimizer_csc_asin_cot_positive	csc(asin(cot(x)))	@optimize:x	0	0.5
+optimizer_csc_asin_csc_negative	csc(asin(csc(x)))	@optimize:x	0	-0.5
+optimizer_csc_asin_csc_negative_zero	csc(asin(csc(x)))	@optimize:x	0	-0
+optimizer_csc_asin_csc_positive	csc(asin(csc(x)))	@optimize:x	0	0.5
+optimizer_cot_atan_cot_callback	cot(atan(cot(count(x))))	@optimize:x	0	0.5
+optimizer_log_sec_asin_negative_zero	log(sec(asin(x)))	@optimize:x	0	-0
+optimizer_log_sec_asin_zero	log(sec(asin(x)))	@optimize:x	0	0
+optimizer_log_sec_asin_near_zero	log(sec(asin(x)))	@optimize:x	0	1e-13
+optimizer_log_sec_atan_negative_zero	log(sec(atan(x)))	@optimize:x	0	-0
+optimizer_log_sec_atan_zero	log(sec(atan(x)))	@optimize:x	0	0
+optimizer_log_sec_atan_near_zero	log(sec(atan(x)))	@optimize:x	0	1e-13
+optimizer_log_sec_sin_negative_zero	log(sec(sin(x)))	@optimize:x	0	-0
+optimizer_log_sec_sin_zero	log(sec(sin(x)))	@optimize:x	0	0
+optimizer_log_sec_sin_near_zero	log(sec(sin(x)))	@optimize:x	0	1e-13
+optimizer_log_sec_tanh_negative_zero	log(sec(tanh(x)))	@optimize:x	0	-0
+optimizer_log_sec_tanh_zero	log(sec(tanh(x)))	@optimize:x	0	0
+optimizer_log_sec_tanh_near_zero	log(sec(tanh(x)))	@optimize:x	0	1e-13
+optimizer_log_csc_acos_negative_zero	log(csc(acos(x)))	@optimize:x	0	-0
+optimizer_log_csc_acos_zero	log(csc(acos(x)))	@optimize:x	0	0
+optimizer_log_csc_acos_near_zero	log(csc(acos(x)))	@optimize:x	0	1e-13
+optimizer_exp_log2_sqrt_negative	exp(log2(sqrt(x)))	@optimize:x	0	-2
+optimizer_exp_log2_sqrt_fractional_negative	exp(log2(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_exp_log10_sqrt_negative	exp(log10(sqrt(x)))	@optimize:x	0	-2
+optimizer_exp_log10_sqrt_fractional_negative	exp(log10(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_exp2_log_sqrt_negative	exp2(log(sqrt(x)))	@optimize:x	0	-2
+optimizer_exp2_log_sqrt_fractional_negative	exp2(log(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_exp2_log10_sqrt_negative	exp2(log10(sqrt(x)))	@optimize:x	0	-2
+optimizer_exp2_log10_sqrt_fractional_negative	exp2(log10(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_log_abs_sec_negative_zero	log(abs(sec(x)))	@optimize:x	0	-0
+optimizer_log_abs_sec_zero	log(abs(sec(x)))	@optimize:x	0	0
+optimizer_log10_sec_asin_negative_zero	log10(sec(asin(x)))	@optimize:x	0	-0
+optimizer_log10_sec_asin_zero	log10(sec(asin(x)))	@optimize:x	0	0
+optimizer_log10_sec_atan_negative_zero	log10(sec(atan(x)))	@optimize:x	0	-0
+optimizer_log10_sec_atan_zero	log10(sec(atan(x)))	@optimize:x	0	0
+optimizer_log10_sec_sin_negative_zero	log10(sec(sin(x)))	@optimize:x	0	-0
+optimizer_log10_sec_sin_zero	log10(sec(sin(x)))	@optimize:x	0	0
+optimizer_log10_sec_tanh_negative_zero	log10(sec(tanh(x)))	@optimize:x	0	-0
+optimizer_log10_sec_tanh_zero	log10(sec(tanh(x)))	@optimize:x	0	0
+optimizer_log10_csc_acos_negative_zero	log10(csc(acos(x)))	@optimize:x	0	-0
+optimizer_log10_csc_acos_zero	log10(csc(acos(x)))	@optimize:x	0	0
+optimizer_log10_abs_sec_negative_zero	log10(abs(sec(x)))	@optimize:x	0	-0
+optimizer_log10_abs_sec_zero	log10(abs(sec(x)))	@optimize:x	0	0
+unicode_bmp_identifier	λ	λ	0	3
+unicode_supplementary_identifier	🧪x	🧪x	0	-2
+unicode_combining_only_identifier	é	é	0	2
+unicode_joiner_identifier	a‍b	a‍b	0	4
+unicode_line_separator_identifier	x y	x y	0	5
+unicode_bom_identifier	﻿x	﻿x	0	6
+unicode_2000_space	x +y	x,y	0	1,2
+unicode_nbsp_space	x +y	x,y	0	1,2
+unicode_3000_space	x　+y	x,y	0	1,2
+unicode_202f_space	x +y	x,y	0	1,2
+optimizer_tan_abs_acos_negative_domain	tan(abs(acos(x)))	@optimize:x	0	-2
+optimizer_tan_abs_acos_negative	tan(abs(acos(x)))	@optimize:x	0	-0.5
+optimizer_tan_abs_acos_negative_zero	tan(abs(acos(x)))	@optimize:x	0	-0
+optimizer_tan_abs_acos_positive_zero	tan(abs(acos(x)))	@optimize:x	0	0
+optimizer_tan_abs_acos_positive	tan(abs(acos(x)))	@optimize:x	0	0.5
+optimizer_tan_abs_acos_positive_domain	tan(abs(acos(x)))	@optimize:x	0	2
+optimizer_log2_sec_asin_negative_zero	log2(sec(asin(x)))	@optimize:x	0	-0
+optimizer_log2_sec_asin_zero	log2(sec(asin(x)))	@optimize:x	0	0
+optimizer_log2_sec_asin_near_zero	log2(sec(asin(x)))	@optimize:x	0	1e-13
+optimizer_log2_sec_atan_negative_zero	log2(sec(atan(x)))	@optimize:x	0	-0
+optimizer_log2_sec_atan_zero	log2(sec(atan(x)))	@optimize:x	0	0
+optimizer_log2_sec_atan_near_zero	log2(sec(atan(x)))	@optimize:x	0	1e-13
+optimizer_log2_sec_sin_negative_zero	log2(sec(sin(x)))	@optimize:x	0	-0
+optimizer_log2_sec_sin_zero	log2(sec(sin(x)))	@optimize:x	0	0
+optimizer_log2_sec_sin_near_zero	log2(sec(sin(x)))	@optimize:x	0	1e-13
+optimizer_log2_sec_tanh_negative_zero	log2(sec(tanh(x)))	@optimize:x	0	-0
+optimizer_log2_sec_tanh_zero	log2(sec(tanh(x)))	@optimize:x	0	0
+optimizer_log2_sec_tanh_near_zero	log2(sec(tanh(x)))	@optimize:x	0	1e-13
+optimizer_log2_csc_acos_negative_zero	log2(csc(acos(x)))	@optimize:x	0	-0
+optimizer_log2_csc_acos_zero	log2(csc(acos(x)))	@optimize:x	0	0
+optimizer_log2_csc_acos_near_zero	log2(csc(acos(x)))	@optimize:x	0	1e-13
+optimizer_log2_abs_sec_negative_zero	log2(abs(sec(x)))	@optimize:x	0	-0
+optimizer_log2_abs_sec_zero	log2(abs(sec(x)))	@optimize:x	0	0
+optimizer_log2_abs_sec_near_zero	log2(abs(sec(x)))	@optimize:x	0	1e-13
+optimizer_abs_atan_sqrt_negative_zero	abs(atan(sqrt(x)))	@optimize:x	0	-0
+optimizer_abs_atan_sqrt_positive_zero	abs(atan(sqrt(x)))	@optimize:x	0	0
+optimizer_abs_atan_sqrt_negative_domain	abs(atan(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_atan_sqrt_positive	abs(atan(sqrt(x)))	@optimize:x	0	0.5
+optimizer_abs_ceil_sqrt_negative_zero	abs(ceil(sqrt(x)))	@optimize:x	0	-0
+optimizer_abs_ceil_sqrt_positive_zero	abs(ceil(sqrt(x)))	@optimize:x	0	0
+optimizer_abs_ceil_sqrt_negative_domain	abs(ceil(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_ceil_sqrt_positive	abs(ceil(sqrt(x)))	@optimize:x	0	0.5
+optimizer_abs_floor_sqrt_negative_zero	abs(floor(sqrt(x)))	@optimize:x	0	-0
+optimizer_abs_floor_sqrt_positive_zero	abs(floor(sqrt(x)))	@optimize:x	0	0
+optimizer_abs_floor_sqrt_negative_domain	abs(floor(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_floor_sqrt_positive	abs(floor(sqrt(x)))	@optimize:x	0	0.5
+optimizer_abs_sinh_sqrt_negative_zero	abs(sinh(sqrt(x)))	@optimize:x	0	-0
+optimizer_abs_sinh_sqrt_positive_zero	abs(sinh(sqrt(x)))	@optimize:x	0	0
+optimizer_abs_sinh_sqrt_negative_domain	abs(sinh(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_sinh_sqrt_positive	abs(sinh(sqrt(x)))	@optimize:x	0	0.5
+optimizer_abs_tanh_sqrt_negative_zero	abs(tanh(sqrt(x)))	@optimize:x	0	-0
+optimizer_abs_tanh_sqrt_positive_zero	abs(tanh(sqrt(x)))	@optimize:x	0	0
+optimizer_abs_tanh_sqrt_negative_domain	abs(tanh(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_tanh_sqrt_positive	abs(tanh(sqrt(x)))	@optimize:x	0	0.5
+optimizer_abs_trunc_sqrt_negative_zero	abs(trunc(sqrt(x)))	@optimize:x	0	-0
+optimizer_abs_trunc_sqrt_positive_zero	abs(trunc(sqrt(x)))	@optimize:x	0	0
+optimizer_abs_trunc_sqrt_negative_domain	abs(trunc(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_abs_trunc_sqrt_positive	abs(trunc(sqrt(x)))	@optimize:x	0	0.5
+optimizer_sqrt_sqrt_cbrt_negative	sqrt(sqrt(cbrt(x)))	@optimize:x	0	-2
+optimizer_sqrt_sqrt_cbrt_fractional_negative	sqrt(sqrt(cbrt(x)))	@optimize:x	0	-0.5
+optimizer_sqrt_cbrt_sqrt_negative	sqrt(cbrt(sqrt(x)))	@optimize:x	0	-2
+optimizer_sqrt_cbrt_sqrt_fractional_negative	sqrt(cbrt(sqrt(x)))	@optimize:x	0	-0.5
+optimizer_sqrt_exp_log2_negative	sqrt(exp(log2(x)))	@optimize:x	0	-2
+optimizer_sqrt_exp_log2_fractional_negative	sqrt(exp(log2(x)))	@optimize:x	0	-0.5
+optimizer_sqrt_exp2_log_negative	sqrt(exp2(log(x)))	@optimize:x	0	-2
+optimizer_sqrt_exp2_log_fractional_negative	sqrt(exp2(log(x)))	@optimize:x	0	-0.5
+optimizer_sqrt_exp2_log10_negative	sqrt(exp2(log10(x)))	@optimize:x	0	-2
+optimizer_sqrt_exp2_log10_fractional_negative	sqrt(exp2(log10(x)))	@optimize:x	0	-0.5
+optimizer_sqrt_exp_log10_negative	sqrt(exp(log10(x)))	@optimize:x	0	-2
+optimizer_sqrt_exp_log10_fractional_negative	sqrt(exp(log10(x)))	@optimize:x	0	-0.5
+optimizer_sqrt_exp_log2_large_negative	sqrt(exp(log2(x)))	@optimize:x	0	-1e200
+optimizer_sqrt_exp_log2_large_positive	sqrt(exp(log2(x)))	@optimize:x	0	1e200
+optimizer_sqrt_exp2_log_large_negative	sqrt(exp2(log(x)))	@optimize:x	0	-1e200
+optimizer_sqrt_exp2_log_large_positive	sqrt(exp2(log(x)))	@optimize:x	0	1e200
+optimizer_sqrt_exp2_log10_large_negative	sqrt(exp2(log10(x)))	@optimize:x	0	-1e200
+optimizer_sqrt_exp2_log10_large_positive	sqrt(exp2(log10(x)))	@optimize:x	0	1e200
+optimizer_sqrt_exp_log10_large_negative	sqrt(exp(log10(x)))	@optimize:x	0	-1e200
+optimizer_sqrt_exp_log10_large_positive	sqrt(exp(log10(x)))	@optimize:x	0	1e200
+optimizer_sqrt_sqrt_cbrt_large_negative	sqrt(sqrt(cbrt(x)))	@optimize:x	0	-1e200
+optimizer_sqrt_cbrt_sqrt_large_negative	sqrt(cbrt(sqrt(x)))	@optimize:x	0	-1e200

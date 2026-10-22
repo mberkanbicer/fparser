@@ -1,0 +1,10 @@
+[package]
+name = "fparser-rs"
+version = "0.1.0"
+edition = "2021"
+license = "LGPL-3.0-or-later"
+description = "Rust expression parser and evaluator for openEMS"
+
+[lib]
+name = "fparser"
+path = "src/lib.rs"
