@@ -19,3 +19,7 @@ install_manifest.txt
 
 # Rust build artifacts
 rust/target/
+
+# Python bytecode from the differential harness
+__pycache__/
+*.pyc
