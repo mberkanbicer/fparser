@@ -759,9 +759,16 @@ fn parse_number(input: &str, start: usize) -> Option<(f64, usize)> {
     Some((input[start..end].parse().ok()?, end))
 }
 
+/// Maximum recursion depth of the recursive-descent grammar.
+///
+/// A hostile expression with thousands of nested parentheses would otherwise
+/// exhaust the native stack; the limit turns it into a normal parse error.
+const MAX_EXPRESSION_DEPTH: usize = 512;
+
 struct Grammar<'a> {
     tokens: Vec<Token>,
     cursor: usize,
+    depth: usize,
     variables: Vec<String>,
     variable_indices: HashMap<String, usize>,
     inline_indices: HashMap<String, usize>,
@@ -786,6 +793,7 @@ impl<'a> Grammar<'a> {
         Ok(Self {
             tokens: tokenize(input)?,
             cursor: 0,
+            depth: 0,
             variables,
             variable_indices,
             inline_indices: HashMap::new(),
@@ -837,7 +845,17 @@ impl<'a> Grammar<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<Expression, ParseError> {
-        self.parse_or()
+        self.depth += 1;
+        if self.depth > MAX_EXPRESSION_DEPTH {
+            self.depth -= 1;
+            return Err(ParseError {
+                kind: ParseErrorKind::OutOfMemory,
+                position: self.cursor,
+            });
+        }
+        let result = self.parse_or();
+        self.depth -= 1;
+        result
     }
 
     fn parse_or(&mut self) -> Result<Expression, ParseError> {
@@ -909,7 +927,15 @@ impl<'a> Grammar<'a> {
     }
 
     fn parse_unary(&mut self) -> Result<Expression, ParseError> {
-        match self.current().kind {
+        self.depth += 1;
+        if self.depth > MAX_EXPRESSION_DEPTH {
+            self.depth -= 1;
+            return Err(ParseError {
+                kind: ParseErrorKind::OutOfMemory,
+                position: self.cursor,
+            });
+        }
+        let result = match self.current().kind {
             TokenKind::Minus => {
                 self.advance();
                 Ok(Expression::Unary(
@@ -925,7 +951,9 @@ impl<'a> Grammar<'a> {
                 ))
             }
             _ => self.parse_power(),
-        }
+        };
+        self.depth -= 1;
+        result
     }
 
     fn parse_power(&mut self) -> Result<Expression, ParseError> {
@@ -3487,6 +3515,20 @@ mod tests {
         close(parse("2^3^2", "", false).eval(&[]).unwrap(), 512.0);
         close(parse("2^-2", "", false).eval(&[]).unwrap(), 0.25);
         close(parse("2+3*4", "", false).eval(&[]).unwrap(), 14.0);
+    }
+
+    #[test]
+    fn deeply_nested_expressions_are_rejected_without_overflowing() {
+        let deep = format!("{}1{}", "(".repeat(4000), ")".repeat(4000));
+        let mut parser = Parser::new();
+        let error = parser.parse(&deep, "", false).expect_err("nesting limit");
+        assert!(matches!(error.kind, ParseErrorKind::OutOfMemory));
+
+        // A reasonable depth still parses.
+        let reasonable = format!("{}1{}", "(".repeat(100), ")".repeat(100));
+        let mut parser = Parser::new();
+        parser.parse(&reasonable, "", false).expect("100 levels");
+        close(parser.eval(&[]).unwrap(), 1.0);
     }
 
     #[test]
