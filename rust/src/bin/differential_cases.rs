@@ -1,4 +1,9 @@
-use fparser::Parser;
+use fparser::{Parser, Real};
+
+#[cfg(feature = "float")]
+const PI: Real = std::f32::consts::PI;
+#[cfg(not(feature = "float"))]
+const PI: Real = std::f64::consts::PI;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -15,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(fields.len(), 5, "invalid corpus row {}", line_number + 1);
 
         let mut parser = Parser::new();
-        assert!(parser.add_constant("pi", std::f64::consts::PI));
+        assert!(parser.add_constant("pi", PI));
         assert!(parser.add_unit("cm", 0.01));
         let calls = Arc::new(AtomicUsize::new(0));
         let calls_from_function = Arc::clone(&calls);
@@ -28,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let sequence_calls = Arc::clone(&calls);
         assert!(parser.add_function("sequence", 1, move |_| {
             sequence_calls.fetch_add(1, Ordering::SeqCst);
-            sequence_value.fetch_add(1, Ordering::SeqCst) as f64 + 1.0
+            sequence_value.fetch_add(1, Ordering::SeqCst) as Real + 1.0
         }));
         let mut square = Parser::new();
         square.parse("x^2", "x", false).unwrap();
@@ -74,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             fields[4]
                 .split(',')
-                .map(|value| value.parse::<f64>().expect("valid numeric test value"))
+                .map(|value| value.parse::<Real>().expect("valid numeric test value"))
                 .collect()
         };
         match parser.eval(&values) {

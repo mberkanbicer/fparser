@@ -8,3 +8,7 @@ description = "Rust expression parser and evaluator for openEMS"
 [lib]
 name = "fparser"
 path = "src/lib.rs"
+
+[features]
+# Native fparser `float` build.
+float = []

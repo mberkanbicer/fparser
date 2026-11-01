@@ -1,12 +1,14 @@
+mod scalar;
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-const DEFAULT_EPSILON: f64 = 1.0e-12;
-static EPSILON_BITS: AtomicU64 = AtomicU64::new(DEFAULT_EPSILON.to_bits());
+const DEFAULT_EPSILON: Real = 1.0e-12;
+pub use crate::scalar::Real;
+static EPSILON_BITS: AtomicU64 = AtomicU64::new(1.0e-12f64.to_bits());
 
-type UserFunction = Arc<dyn Fn(&[f64]) -> f64 + Send + Sync>;
+type UserFunction = Arc<dyn Fn(&[Real]) -> Real + Send + Sync>;
 
 #[derive(Clone)]
 enum FunctionTarget {
@@ -139,7 +141,7 @@ impl std::error::Error for EvalError {}
 
 #[derive(Clone)]
 enum Expression {
-    Number(f64),
+    Number(Real),
     Variable(usize),
     Inline(usize),
     Shared(usize, Box<Expression>),
@@ -293,8 +295,8 @@ struct Program {
 
 #[derive(Clone)]
 pub struct Parser {
-    constants: HashMap<String, f64>,
-    units: HashMap<String, f64>,
+    constants: HashMap<String, Real>,
+    units: HashMap<String, Real>,
     functions: HashMap<String, FunctionDefinition>,
     program: Option<Program>,
     delimiter: Option<char>,
@@ -323,7 +325,7 @@ impl Parser {
             || self.functions.contains_key(name)
     }
 
-    pub fn add_constant(&mut self, name: &str, value: f64) -> bool {
+    pub fn add_constant(&mut self, name: &str, value: Real) -> bool {
         if !is_identifier(name) || is_reserved_name(name) || self.identifier_exists(name) {
             return false;
         }
@@ -331,7 +333,7 @@ impl Parser {
         true
     }
 
-    pub fn add_unit(&mut self, name: &str, value: f64) -> bool {
+    pub fn add_unit(&mut self, name: &str, value: Real) -> bool {
         if !is_identifier(name) || is_reserved_name(name) || self.identifier_exists(name) {
             return false;
         }
@@ -341,7 +343,7 @@ impl Parser {
 
     pub fn add_function<F>(&mut self, name: &str, parameters: usize, function: F) -> bool
     where
-        F: Fn(&[f64]) -> f64 + Send + Sync + 'static,
+        F: Fn(&[Real]) -> Real + Send + Sync + 'static,
     {
         if !is_identifier(name) || is_reserved_name(name) || self.identifier_exists(name) {
             return false;
@@ -381,12 +383,12 @@ impl Parser {
             || self.functions.remove(name).is_some()
     }
 
-    pub fn set_epsilon(epsilon: f64) {
-        EPSILON_BITS.store(epsilon.to_bits(), Ordering::Relaxed);
+    pub fn set_epsilon(epsilon: Real) {
+        EPSILON_BITS.store(crate::scalar::to_f64(epsilon).to_bits(), Ordering::Relaxed);
     }
 
-    pub fn epsilon() -> f64 {
-        f64::from_bits(EPSILON_BITS.load(Ordering::Relaxed))
+    pub fn epsilon() -> Real {
+        crate::scalar::from_f64(f64::from_bits(EPSILON_BITS.load(Ordering::Relaxed)))
     }
 
     pub fn set_delimiter_char(&mut self, delimiter: Option<char>) {
@@ -473,7 +475,7 @@ impl Parser {
         Ok(variables)
     }
 
-    pub fn eval(&self, values: &[f64]) -> Result<f64, EvalError> {
+    pub fn eval(&self, values: &[Real]) -> Result<Real, EvalError> {
         let program = self.program.as_ref().ok_or(EvalError::NotParsed)?;
         if values.len() != program.variables.len() {
             return Err(EvalError::InvalidVariableCount {
@@ -534,8 +536,8 @@ impl Parser {
 
 fn parse_variable_list(
     input: &str,
-    constants: &HashMap<String, f64>,
-    units: &HashMap<String, f64>,
+    constants: &HashMap<String, Real>,
+    units: &HashMap<String, Real>,
     functions: &HashMap<String, FunctionDefinition>,
 ) -> Result<Vec<String>, ParseErrorKind> {
     if input.trim().is_empty() {
@@ -596,7 +598,7 @@ struct Token {
 
 #[derive(Clone, Debug, PartialEq)]
 enum TokenKind {
-    Number(f64),
+    Number(Real),
     Identifier(String),
     Plus,
     Minus,
@@ -712,7 +714,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, ParseError> {
     Ok(tokens)
 }
 
-fn parse_number(input: &str, start: usize) -> Option<(f64, usize)> {
+fn parse_number(input: &str, start: usize) -> Option<(Real, usize)> {
     let bytes = input.as_bytes();
     if bytes.get(start..start + 2) == Some(b"0x") || bytes.get(start..start + 2) == Some(b"0X") {
         let mut end = start + 2;
@@ -722,7 +724,7 @@ fn parse_number(input: &str, start: usize) -> Option<(f64, usize)> {
         if end == start + 2 {
             return None;
         }
-        let value = u64::from_str_radix(&input[start + 2..end], 16).ok()? as f64;
+        let value = u64::from_str_radix(&input[start + 2..end], 16).ok()? as Real;
         return Some((value, end));
     }
 
@@ -772,8 +774,8 @@ struct Grammar<'a> {
     variables: Vec<String>,
     variable_indices: HashMap<String, usize>,
     inline_indices: HashMap<String, usize>,
-    constants: &'a HashMap<String, f64>,
-    units: &'a HashMap<String, f64>,
+    constants: &'a HashMap<String, Real>,
+    units: &'a HashMap<String, Real>,
     functions: &'a HashMap<String, FunctionDefinition>,
 }
 
@@ -781,8 +783,8 @@ impl<'a> Grammar<'a> {
     fn new(
         input: &str,
         variables: Vec<String>,
-        constants: &'a HashMap<String, f64>,
-        units: &'a HashMap<String, f64>,
+        constants: &'a HashMap<String, Real>,
+        units: &'a HashMap<String, Real>,
         functions: &'a HashMap<String, FunctionDefinition>,
     ) -> Result<Self, ParseError> {
         let variable_indices = variables
@@ -1146,12 +1148,12 @@ impl<'a> Grammar<'a> {
 
 fn evaluate(
     expression: &Expression,
-    variables: &[f64],
-    inline_values: &[f64],
+    variables: &[Real],
+    inline_values: &[Real],
     use_degrees: bool,
-    epsilon: f64,
-    shared_values: &mut HashMap<usize, Result<f64, EvalError>>,
-) -> Result<f64, EvalError> {
+    epsilon: Real,
+    shared_values: &mut HashMap<usize, Result<Real, EvalError>>,
+) -> Result<Real, EvalError> {
     match expression {
         Expression::Number(value) => Ok(*value),
         Expression::Variable(index) => Ok(variables[*index]),
@@ -1182,17 +1184,17 @@ fn evaluate(
             )?;
             Ok(match operator {
                 UnaryOperator::Negate => -value,
-                UnaryOperator::Not => f64::from(!truth(value)),
+                UnaryOperator::Not => Real::from(!truth(value)),
                 UnaryOperator::ExactZero => {
                     if value == 0.0 {
-                        f64::INFINITY
+                        Real::INFINITY
                     } else {
                         0.0
                     }
                 }
                 UnaryOperator::ExactNegative => {
                     if value < 0.0 {
-                        f64::INFINITY
+                        Real::INFINITY
                     } else {
                         0.0
                     }
@@ -1294,7 +1296,7 @@ fn evaluate(
     }
 }
 
-fn truth(value: f64) -> bool {
+fn truth(value: Real) -> bool {
     value.abs() >= 0.5
 }
 
@@ -1556,10 +1558,10 @@ fn rewrite_log_exp(
         (Builtin::Log, Builtin::Exp) | (Builtin::Log2, Builtin::Exp2) => {
             return Some(argument.clone());
         }
-        (Builtin::Log, Builtin::Exp2) => std::f64::consts::LN_2,
-        (Builtin::Log2, Builtin::Exp) => std::f64::consts::LOG2_E,
-        (Builtin::Log10, Builtin::Exp) => std::f64::consts::LOG10_E,
-        (Builtin::Log10, Builtin::Exp2) => std::f64::consts::LOG10_2,
+        (Builtin::Log, Builtin::Exp2) => crate::scalar::consts::LN_2,
+        (Builtin::Log2, Builtin::Exp) => crate::scalar::consts::LOG2_E,
+        (Builtin::Log10, Builtin::Exp) => crate::scalar::consts::LOG10_E,
+        (Builtin::Log10, Builtin::Exp2) => crate::scalar::consts::LOG10_2,
         _ => return None,
     };
     Some(Expression::Binary(
@@ -1581,11 +1583,11 @@ fn rewrite_exp_log(outer: Builtin, inner: Builtin, argument: &Expression) -> Opt
     ))
 }
 
-fn exp_log_power_exponent(outer: Builtin, inner: Builtin) -> Option<f64> {
+fn exp_log_power_exponent(outer: Builtin, inner: Builtin) -> Option<Real> {
     match (outer, inner) {
-        (Builtin::Exp, Builtin::Log2) => Some(std::f64::consts::LOG2_E),
+        (Builtin::Exp, Builtin::Log2) => Some(crate::scalar::consts::LOG2_E),
         (Builtin::Exp, Builtin::Log10) => Some(LEGACY_OPTIMIZER_LOG10_E),
-        (Builtin::Exp2, Builtin::Log) => Some(std::f64::consts::LN_2),
+        (Builtin::Exp2, Builtin::Log) => Some(crate::scalar::consts::LN_2),
         (Builtin::Exp2, Builtin::Log10) => Some(LEGACY_OPTIMIZER_LOG10_2),
         _ => None,
     }
@@ -1605,7 +1607,7 @@ fn rewrite_sixth_root(outer: Builtin, inner: Builtin, argument: &Expression) -> 
     ))
 }
 
-fn rewrite_signed_power(argument: &Expression, exponent: f64) -> Expression {
+fn rewrite_signed_power(argument: &Expression, exponent: Real) -> Expression {
     let magnitude = || {
         Expression::Binary(
             BinaryOperator::Power,
@@ -1701,8 +1703,8 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
                                 Box::new(log_sine),
                             ))
                         }
-                        Builtin::Log2 => -std::f64::consts::LOG2_E,
-                        Builtin::Log10 => -std::f64::consts::LOG10_E,
+                        Builtin::Log2 => -crate::scalar::consts::LOG2_E,
+                        Builtin::Log10 => -crate::scalar::consts::LOG10_E,
                         _ => unreachable!(),
                     };
                     return Some(Expression::Binary(
@@ -1831,25 +1833,25 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
                     if let [argument @ Expression::Variable(_)] = log10_arguments.as_slice() {
                         let base_coefficient = match inner {
                             Builtin::Log => 1.0,
-                            Builtin::Log2 => std::f64::consts::LOG2_E,
-                            Builtin::Log10 => std::f64::consts::LOG10_E,
+                            Builtin::Log2 => crate::scalar::consts::LOG2_E,
+                            Builtin::Log10 => crate::scalar::consts::LOG10_E,
                             _ => unreachable!(),
                         };
-                        let coefficient = std::f64::consts::LOG10_E.ln() * base_coefficient;
+                        let coefficient = crate::scalar::consts::LOG10_E.ln() * base_coefficient;
                         if *inner == Builtin::Log2 && matches!(outer, Builtin::Cbrt | Builtin::Sqrt)
                         {
                             let adjusted_log = Expression::Binary(
                                 BinaryOperator::Add,
-                                Box::new(Expression::Number(std::f64::consts::LOG10_E.ln())),
+                                Box::new(Expression::Number(crate::scalar::consts::LOG10_E.ln())),
                                 Box::new(Expression::Builtin(
                                     Builtin::Log,
                                     vec![Expression::Builtin(Builtin::Log, vec![argument.clone()])],
                                 )),
                             );
                             let scale = if *outer == Builtin::Cbrt {
-                                std::f64::consts::LOG2_E.cbrt()
+                                crate::scalar::consts::LOG2_E.cbrt()
                             } else {
-                                std::f64::consts::LOG2_E.sqrt()
+                                crate::scalar::consts::LOG2_E.sqrt()
                             };
                             return Some(Expression::Binary(
                                 BinaryOperator::Multiply,
@@ -2269,17 +2271,17 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
     let log_exponential_root_factor = match (*outer, *inner, *innermost) {
         (Builtin::Log, Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt, Builtin::Exp) => Some(1.0),
         (Builtin::Log, Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt, Builtin::Exp2) => {
-            Some(std::f64::consts::LN_2)
+            Some(crate::scalar::consts::LN_2)
         }
         (Builtin::Log2, Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt, Builtin::Exp) => {
-            Some(std::f64::consts::LOG2_E)
+            Some(crate::scalar::consts::LOG2_E)
         }
         (Builtin::Log2, Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt, Builtin::Exp2) => Some(1.0),
         (Builtin::Log10, Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt, Builtin::Exp) => {
-            Some(std::f64::consts::LOG10_E)
+            Some(crate::scalar::consts::LOG10_E)
         }
         (Builtin::Log10, Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt, Builtin::Exp2) => {
-            Some(std::f64::consts::LOG10_2)
+            Some(crate::scalar::consts::LOG10_2)
         }
         _ => None,
     };
@@ -2341,9 +2343,9 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
             Builtin::Asin,
             Builtin::Sec,
             Builtin::Asin | Builtin::Atan | Builtin::Cos | Builtin::Sin | Builtin::Tanh,
-        ) => std::f64::consts::FRAC_PI_2,
+        ) => crate::scalar::consts::FRAC_PI_2,
         (Builtin::Acos, Builtin::Csc, Builtin::Acos) => 0.0,
-        (Builtin::Asin, Builtin::Csc, Builtin::Acos) => std::f64::consts::FRAC_PI_2,
+        (Builtin::Asin, Builtin::Csc, Builtin::Acos) => crate::scalar::consts::FRAC_PI_2,
         (
             Builtin::Acos,
             Builtin::Exp | Builtin::Exp2,
@@ -2353,7 +2355,7 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
             Builtin::Asin,
             Builtin::Exp | Builtin::Exp2,
             Builtin::Abs | Builtin::Cbrt | Builtin::Sqrt,
-        ) => std::f64::consts::FRAC_PI_2,
+        ) => crate::scalar::consts::FRAC_PI_2,
         (
             Builtin::Acos,
             Builtin::Abs
@@ -2375,8 +2377,8 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
             | Builtin::Sqrt
             | Builtin::Trunc,
             Builtin::Cosh,
-        ) => std::f64::consts::FRAC_PI_2,
-        (Builtin::Atan, Builtin::Atanh, Builtin::Cosh) => std::f64::consts::FRAC_PI_2,
+        ) => crate::scalar::consts::FRAC_PI_2,
+        (Builtin::Atan, Builtin::Atanh, Builtin::Cosh) => crate::scalar::consts::FRAC_PI_2,
         (Builtin::Tanh, Builtin::Atanh, Builtin::Cosh) => 1.0,
         (Builtin::Tanh, Builtin::Acosh, Builtin::Sin | Builtin::Cos | Builtin::Tanh) => 0.0,
         _ => return None,
@@ -2436,7 +2438,7 @@ fn rewrite_inverse_exponential(expression: &Expression) -> Option<Expression> {
         Builtin::Exp => Expression::Unary(UnaryOperator::Negate, Box::new(argument.clone())),
         Builtin::Exp2 => Expression::Binary(
             BinaryOperator::Multiply,
-            Box::new(Expression::Number(-std::f64::consts::LN_2)),
+            Box::new(Expression::Number(-crate::scalar::consts::LN_2)),
             Box::new(argument.clone()),
         ),
         _ => return None,
@@ -2518,7 +2520,7 @@ fn rewrite_hyperbolic_acosh_log10(outer: Builtin, argument: &Expression) -> Expr
         Box::new(Expression::Binary(
             BinaryOperator::Multiply,
             Box::new(Expression::Number(
-                std::f64::consts::LOG10_E * std::f64::consts::LOG10_E,
+                crate::scalar::consts::LOG10_E * crate::scalar::consts::LOG10_E,
             )),
             Box::new(log_squared),
         )),
@@ -2601,10 +2603,10 @@ fn rewrite_tanh_asinh(argument: Expression) -> Expression {
 
 fn evaluate_binary(
     operator: BinaryOperator,
-    left: f64,
-    right: f64,
-    epsilon: f64,
-) -> Result<f64, EvalError> {
+    left: Real,
+    right: Real,
+    epsilon: Real,
+) -> Result<Real, EvalError> {
     Ok(match operator {
         BinaryOperator::Add => left + right,
         BinaryOperator::Subtract => left - right,
@@ -2627,18 +2629,18 @@ fn evaluate_binary(
             }
             evaluate_power(left, right, epsilon)
         }
-        BinaryOperator::Equal => f64::from((left - right).abs() <= epsilon),
-        BinaryOperator::NotEqual => f64::from((left - right).abs() > epsilon),
-        BinaryOperator::Less => f64::from(left < right - epsilon),
-        BinaryOperator::LessOrEqual => f64::from(left <= right + epsilon),
-        BinaryOperator::Greater => f64::from(right < left - epsilon),
-        BinaryOperator::GreaterOrEqual => f64::from(right <= left + epsilon),
-        BinaryOperator::And => f64::from(truth(left) && truth(right)),
-        BinaryOperator::Or => f64::from(truth(left) || truth(right)),
+        BinaryOperator::Equal => Real::from((left - right).abs() <= epsilon),
+        BinaryOperator::NotEqual => Real::from((left - right).abs() > epsilon),
+        BinaryOperator::Less => Real::from(left < right - epsilon),
+        BinaryOperator::LessOrEqual => Real::from(left <= right + epsilon),
+        BinaryOperator::Greater => Real::from(right < left - epsilon),
+        BinaryOperator::GreaterOrEqual => Real::from(right <= left + epsilon),
+        BinaryOperator::And => Real::from(truth(left) && truth(right)),
+        BinaryOperator::Or => Real::from(truth(left) || truth(right)),
     })
 }
 
-fn evaluate_power(base: f64, exponent: f64, epsilon: f64) -> f64 {
+fn evaluate_power(base: Real, exponent: Real, epsilon: Real) -> Real {
     if base == 1.0 {
         return 1.0;
     }
@@ -2673,8 +2675,8 @@ fn evaluate_power(base: f64, exponent: f64, epsilon: f64) -> f64 {
 }
 
 #[cfg(any(windows, target_pointer_width = "32"))]
-fn legacy_long_integer(value: f64) -> Option<i64> {
-    if value.fract() == 0.0 && value >= i32::MIN as f64 && value <= i32::MAX as f64 {
+fn legacy_long_integer(value: Real) -> Option<i64> {
+    if value.fract() == 0.0 && value >= i32::MIN as Real && value <= i32::MAX as Real {
         Some(value as i32 as i64)
     } else {
         None
@@ -2682,15 +2684,15 @@ fn legacy_long_integer(value: f64) -> Option<i64> {
 }
 
 #[cfg(all(not(windows), target_pointer_width = "64"))]
-fn legacy_long_integer(value: f64) -> Option<i64> {
-    if value.fract() == 0.0 && value > i64::MIN as f64 && value < -(i64::MIN as f64) {
+fn legacy_long_integer(value: Real) -> Option<i64> {
+    if value.fract() == 0.0 && value > i64::MIN as Real && value < -(i64::MIN as Real) {
         Some(value as i64)
     } else {
         None
     }
 }
 
-fn integer_power(mut base: f64, mut exponent: u64) -> f64 {
+fn integer_power(mut base: Real, mut exponent: u64) -> Real {
     let mut result = 1.0;
     while exponent != 0 {
         if exponent & 1 != 0 {
@@ -2704,17 +2706,17 @@ fn integer_power(mut base: f64, mut exponent: u64) -> f64 {
     result
 }
 
-fn is_integer_with_epsilon(value: f64, epsilon: f64) -> bool {
+fn is_integer_with_epsilon(value: Real, epsilon: Real) -> bool {
     (value - value.floor()).abs() <= epsilon
 }
 
 fn evaluate_builtin(
     builtin: Builtin,
-    values: &[f64],
+    values: &[Real],
     use_degrees: bool,
-    epsilon: f64,
+    epsilon: Real,
     validate_errors: bool,
-) -> Result<f64, EvalError> {
+) -> Result<Real, EvalError> {
     let mut first = values[0];
     if use_degrees && builtin.angle_input() {
         first = first.to_radians();
@@ -2792,8 +2794,8 @@ fn evaluate_builtin(
             }
             match builtin {
                 Builtin::Log => first.ln(),
-                Builtin::Log10 => first.ln() * std::f64::consts::LOG10_E,
-                Builtin::Log2 => first.ln() * std::f64::consts::LOG2_E,
+                Builtin::Log10 => first.ln() * crate::scalar::consts::LOG10_E,
+                Builtin::Log2 => first.ln() * crate::scalar::consts::LOG2_E,
                 _ => unreachable!(),
             }
         }
@@ -2843,7 +2845,7 @@ fn evaluate_builtin(
     })
 }
 
-fn fold_constants(expression: Expression, use_degrees: bool, epsilon: f64) -> Expression {
+fn fold_constants(expression: Expression, use_degrees: bool, epsilon: Real) -> Expression {
     match expression {
         Expression::Shared(index, child) => Expression::Shared(
             index,
@@ -2854,17 +2856,17 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: f64) -> Ex
             if let Expression::Number(value) = child {
                 let folded = match operator {
                     UnaryOperator::Negate => -value,
-                    UnaryOperator::Not => f64::from(!truth(value)),
+                    UnaryOperator::Not => Real::from(!truth(value)),
                     UnaryOperator::ExactZero => {
                         if value == 0.0 {
-                            f64::INFINITY
+                            Real::INFINITY
                         } else {
                             0.0
                         }
                     }
                     UnaryOperator::ExactNegative => {
                         if value < 0.0 {
-                            f64::INFINITY
+                            Real::INFINITY
                         } else {
                             0.0
                         }
@@ -3003,7 +3005,7 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: f64) -> Ex
                             let angle = if use_degrees {
                                 90.0
                             } else {
-                                std::f64::consts::FRAC_PI_2
+                                crate::scalar::consts::FRAC_PI_2
                             };
                             return Expression::Binary(
                                 BinaryOperator::Multiply,
@@ -3141,7 +3143,7 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: f64) -> Ex
                         return Expression::Number(if builtin == Builtin::Acos {
                             0.0
                         } else {
-                            std::f64::consts::FRAC_PI_2
+                            crate::scalar::consts::FRAC_PI_2
                         });
                     }
                 }
@@ -3154,7 +3156,7 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: f64) -> Ex
                         return Expression::Number(if builtin == Builtin::Acos {
                             0.0
                         } else {
-                            std::f64::consts::FRAC_PI_2
+                            crate::scalar::consts::FRAC_PI_2
                         });
                     }
                 }
@@ -3243,10 +3245,10 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: f64) -> Ex
     }
 }
 
-const LEGACY_OPTIMIZER_LOG10_E: f64 = 0.434_294_481_903_251_87;
-const LEGACY_OPTIMIZER_LOG10_2: f64 = 0.301_029_995_663_981_25;
-const LEGACY_LOG2_E_LN: f64 = 0.366_512_920_581_664_3;
-const LEGACY_SQRT_EXP2_FACTOR: f64 = 0.346_573_590_279_972_6;
+const LEGACY_OPTIMIZER_LOG10_E: Real = 0.434_294_481_903_251_87;
+const LEGACY_OPTIMIZER_LOG10_2: Real = 0.301_029_995_663_981_25;
+const LEGACY_LOG2_E_LN: Real = 0.366_512_920_581_664_3;
+const LEGACY_SQRT_EXP2_FACTOR: Real = 0.346_573_590_279_972_6;
 
 fn rewrite_legacy_log_of_log2(builtin: Builtin, argument: &Expression) -> Option<Expression> {
     if !matches!(builtin, Builtin::Log | Builtin::Log10 | Builtin::Log2) {
@@ -3260,8 +3262,8 @@ fn rewrite_legacy_log_of_log2(builtin: Builtin, argument: &Expression) -> Option
     };
     let constant = match builtin {
         Builtin::Log => LEGACY_LOG2_E_LN,
-        Builtin::Log10 => LEGACY_LOG2_E_LN * std::f64::consts::LOG10_E,
-        Builtin::Log2 => LEGACY_LOG2_E_LN * std::f64::consts::LOG2_E,
+        Builtin::Log10 => LEGACY_LOG2_E_LN * crate::scalar::consts::LOG10_E,
+        Builtin::Log2 => LEGACY_LOG2_E_LN * crate::scalar::consts::LOG2_E,
         _ => unreachable!(),
     };
     Some(Expression::Binary(
@@ -3354,7 +3356,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
                         return Expression::Binary(
                             BinaryOperator::Multiply,
                             Box::new(Expression::Number(
-                                std::f64::consts::LOG2_E * std::f64::consts::LOG2_E,
+                                crate::scalar::consts::LOG2_E * crate::scalar::consts::LOG2_E,
                             )),
                             Box::new(Expression::Binary(
                                 BinaryOperator::Power,
@@ -3402,7 +3404,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
                         Builtin::Exp,
                         vec![Expression::Binary(
                             BinaryOperator::Multiply,
-                            Box::new(Expression::Number(std::f64::consts::LN_2)),
+                            Box::new(Expression::Number(crate::scalar::consts::LN_2)),
                             Box::new(argument.clone()),
                         )],
                     )
@@ -3428,7 +3430,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
                         inner.as_slice()
                     {
                         if let Expression::Number(value) = &**factor {
-                            let value = if *value == std::f64::consts::LN_2 {
+                            let value = if *value == crate::scalar::consts::LN_2 {
                                 LEGACY_SQRT_EXP2_FACTOR
                             } else {
                                 value * 0.5
@@ -3469,7 +3471,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
                     if let [argument] = inner.as_slice() {
                         return Expression::Binary(
                             BinaryOperator::Multiply,
-                            Box::new(Expression::Number(std::f64::consts::LOG2_E.sqrt())),
+                            Box::new(Expression::Number(crate::scalar::consts::LOG2_E.sqrt())),
                             Box::new(Expression::Builtin(
                                 Builtin::Sqrt,
                                 vec![Expression::Builtin(Builtin::Log, vec![argument.clone()])],
@@ -3491,7 +3493,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "float")))]
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -3502,7 +3504,7 @@ mod tests {
         parser
     }
 
-    fn close(actual: f64, expected: f64) {
+    fn close(actual: Real, expected: Real) {
         assert!(
             (actual - expected).abs() <= 1.0e-12,
             "{actual} != {expected}"
@@ -3534,7 +3536,7 @@ mod tests {
     #[test]
     fn units_degrees_and_builtin_functions_evaluate() {
         let mut parser = Parser::new();
-        assert!(parser.add_constant("pi", std::f64::consts::PI));
+        assert!(parser.add_constant("pi", crate::scalar::consts::PI));
         assert!(parser.add_unit("cm", 0.01));
         parser.parse("sin(30)+2cm", "", true).unwrap();
         close(parser.eval(&[]).unwrap(), 0.52);
@@ -3652,7 +3654,7 @@ mod tests {
     #[test]
     fn every_default_real_builtin_parses_and_evaluates() {
         let mut parser = Parser::new();
-        assert!(parser.add_constant("pi", std::f64::consts::PI));
+        assert!(parser.add_constant("pi", crate::scalar::consts::PI));
         let cases = [
             ("abs(-3)", 3.0),
             ("acos(1)", 0.0),
@@ -3762,7 +3764,7 @@ mod tests {
             assert_eq!(error.legacy_code(), Some(code));
         }
         assert_eq!(
-            parse("log(x)", "x", false).eval(&[f64::NAN]),
+            parse("log(x)", "x", false).eval(&[Real::NAN]),
             Err(EvalError::InvalidLogarithmOrPower)
         );
     }
@@ -3807,7 +3809,7 @@ mod tests {
     #[test]
     fn integer_power_uses_the_platform_c_long_range() {
         assert_eq!(integer_power(-2.0, 3), -8.0);
-        assert_eq!(legacy_long_integer(i32::MAX as f64), Some(i32::MAX as i64));
+        assert_eq!(legacy_long_integer(i32::MAX as Real), Some(i32::MAX as i64));
         #[cfg(windows)]
         assert_eq!(legacy_long_integer(2_147_483_648.0), None);
         #[cfg(all(not(windows), target_pointer_width = "64"))]
@@ -3943,7 +3945,7 @@ mod tests {
         let mut parser = parse("cosh(asinh(sinh(x)))", "x", false);
         parser.optimize();
         close(parser.eval(&[-10.0]).unwrap(), 10.0_f64.cosh());
-        assert_eq!(parser.eval(&[-1.0e200]).unwrap(), f64::INFINITY);
+        assert_eq!(parser.eval(&[-1.0e200]).unwrap(), Real::INFINITY);
     }
 
     #[test]
@@ -4016,14 +4018,14 @@ mod tests {
     #[test]
     fn optimized_inverse_trig_exponentials_preserve_underflow_behavior() {
         for (expression, expected) in [
-            ("tan(acos(exp(x)))", f64::INFINITY),
-            ("tan(acos(exp2(x)))", f64::INFINITY),
+            ("tan(acos(exp(x)))", Real::INFINITY),
+            ("tan(acos(exp2(x)))", Real::INFINITY),
             ("cot(acos(exp(x)))", 0.0),
             ("cot(acos(exp2(x)))", 0.0),
-            ("csc(asin(exp(x)))", f64::INFINITY),
-            ("csc(asin(exp2(x)))", f64::INFINITY),
-            ("sec(acos(exp(x)))", f64::INFINITY),
-            ("sec(acos(exp2(x)))", f64::INFINITY),
+            ("csc(asin(exp(x)))", Real::INFINITY),
+            ("csc(asin(exp2(x)))", Real::INFINITY),
+            ("sec(acos(exp(x)))", Real::INFINITY),
+            ("sec(acos(exp2(x)))", Real::INFINITY),
         ] {
             let mut parser = parse(expression, "x", false);
             parser.optimize();
@@ -4053,7 +4055,7 @@ mod tests {
     fn optimization_matches_nested_log10_rounding() {
         let mut parser = parse("cbrt(log(log10(x)))", "x", false);
         parser.optimize();
-        let expected = (10.0_f64.ln().ln() + std::f64::consts::LOG10_E.ln()).cbrt();
+        let expected = (10.0_f64.ln().ln() + crate::scalar::consts::LOG10_E.ln()).cbrt();
         close(parser.eval(&[10.0]).unwrap(), expected);
 
         let mut parser = parse("ceil(log(log10(x)))", "x", false);
@@ -4089,7 +4091,7 @@ mod tests {
             let angle = if use_degrees {
                 90.0_f64.to_radians()
             } else {
-                std::f64::consts::FRAC_PI_2
+                crate::scalar::consts::FRAC_PI_2
             };
             let expected = 0.5 / angle.cos();
             for expression in ["sec(asin(cosh(x)))", "tan(asin(cosh(x)))"] {
@@ -4146,7 +4148,7 @@ mod tests {
         close(parser.eval(&[4.0]).unwrap(), 14.0);
         let mut parser = parse("log(0)+x", "x", false);
         parser.optimize();
-        assert_eq!(parser.eval(&[0.0]).unwrap(), f64::NEG_INFINITY);
+        assert_eq!(parser.eval(&[0.0]).unwrap(), Real::NEG_INFINITY);
     }
 
     #[test]
@@ -4252,10 +4254,10 @@ mod tests {
     #[test]
     fn optimization_rewrites_signed_sqrt_exp_log_compositions() {
         let cases = [
-            ("sqrt(exp(log2(x)))", std::f64::consts::LOG2_E / 2.0),
-            ("sqrt(exp2(log(x)))", std::f64::consts::LN_2 / 2.0),
-            ("sqrt(exp2(log10(x)))", std::f64::consts::LOG10_2 / 2.0),
-            ("sqrt(exp(log10(x)))", std::f64::consts::LOG10_E / 2.0),
+            ("sqrt(exp(log2(x)))", crate::scalar::consts::LOG2_E / 2.0),
+            ("sqrt(exp2(log(x)))", crate::scalar::consts::LN_2 / 2.0),
+            ("sqrt(exp2(log10(x)))", crate::scalar::consts::LOG10_2 / 2.0),
+            ("sqrt(exp(log10(x)))", crate::scalar::consts::LOG10_E / 2.0),
         ];
         for (expression, exponent) in cases {
             let mut parser = parse(expression, "x", false);
@@ -4271,12 +4273,12 @@ mod tests {
     #[test]
     fn optimization_rewrites_logarithms_of_exponential_roots() {
         let logarithms = [
-            ("log", 1.0, std::f64::consts::LN_2),
-            ("log2", std::f64::consts::LOG2_E, 1.0),
+            ("log", 1.0, crate::scalar::consts::LN_2),
+            ("log2", crate::scalar::consts::LOG2_E, 1.0),
             (
                 "log10",
-                std::f64::consts::LOG10_E,
-                std::f64::consts::LOG10_2,
+                crate::scalar::consts::LOG10_E,
+                crate::scalar::consts::LOG10_2,
             ),
         ];
         let roots = [("abs", 1.0), ("cbrt", 1.0 / 3.0), ("sqrt", 0.5)];
@@ -4454,42 +4456,42 @@ mod tests {
     fn optimization_matches_nested_domain_optimizer_constants() {
         let cases = [
             ("acos(sec(cos(x)))", 0.0),
-            ("asin(sec(cos(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(sec(cos(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(sec(asin(x)))", 0.0),
-            ("asin(sec(asin(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(sec(asin(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(sec(atan(x)))", 0.0),
-            ("asin(sec(atan(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(sec(atan(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(sec(sin(x)))", 0.0),
-            ("asin(sec(sin(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(sec(sin(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(sec(tanh(x)))", 0.0),
-            ("asin(sec(tanh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(sec(tanh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(exp(abs(x)))", 0.0),
-            ("asin(exp(abs(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(exp(abs(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(exp(cbrt(x)))", 0.0),
-            ("asin(exp(cbrt(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(exp(cbrt(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(exp(sqrt(x)))", 0.0),
-            ("asin(exp(sqrt(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(exp(sqrt(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(exp2(abs(x)))", 0.0),
-            ("asin(exp2(abs(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(exp2(abs(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(exp2(cbrt(x)))", 0.0),
-            ("asin(exp2(cbrt(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(exp2(cbrt(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(exp2(sqrt(x)))", 0.0),
-            ("asin(exp2(sqrt(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(exp2(sqrt(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(abs(cosh(x)))", 0.0),
-            ("asin(abs(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(abs(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(cbrt(cosh(x)))", 0.0),
-            ("asin(cbrt(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(cbrt(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(ceil(cosh(x)))", 0.0),
-            ("asin(ceil(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(ceil(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(floor(cosh(x)))", 0.0),
-            ("asin(floor(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(floor(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(int(cosh(x)))", 0.0),
-            ("asin(int(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(int(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(trunc(cosh(x)))", 0.0),
-            ("asin(trunc(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(trunc(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("acos(sqrt(cosh(x)))", 0.0),
-            ("asin(sqrt(cosh(x)))", std::f64::consts::FRAC_PI_2),
-            ("atan(atanh(cosh(x)))", std::f64::consts::FRAC_PI_2),
+            ("asin(sqrt(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
+            ("atan(atanh(cosh(x)))", crate::scalar::consts::FRAC_PI_2),
             ("sinh(acosh(cos(x)))", 0.0),
             ("sinh(acosh(sin(x)))", 0.0),
             ("sinh(acosh(tanh(x)))", 0.0),
@@ -4510,7 +4512,7 @@ mod tests {
 
     #[test]
     fn optimization_preserves_observed_signed_compositions() {
-        let input: f64 = -0.5;
+        let input: Real = -0.5;
         let cot = 1.0 / input.tan();
         let csc = 1.0 / input.sin();
         let sec = 1.0 / input.cos();
