@@ -16,6 +16,8 @@ float = []
 long-double = ["dep:f128", "dep:num-traits"]
 # Native `FunctionParser_mpfr` build: arbitrary-precision MPFR/GMP.
 mpfr = ["dep:rug"]
+# Native `FunctionParser_gmpint` build: arbitrary-precision integers.
+long-integer = ["dep:rug"]
 
 [dependencies]
 f128 = { version = "0.2.9", optional = true }
@@ -29,3 +31,7 @@ required-features = ["long-double"]
 [[example]]
 name = "mpfr_probe"
 required-features = ["mpfr"]
+
+[[example]]
+name = "long_integer_probe"
+required-features = ["long-integer"]

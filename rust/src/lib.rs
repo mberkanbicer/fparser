@@ -224,7 +224,7 @@ enum Builtin {
 
 impl Builtin {
     fn from_name(name: &str) -> Option<Self> {
-        Some(match name {
+        let builtin = match name {
             "abs" => Self::Abs,
             "acos" => Self::Acos,
             "acosh" => Self::Acosh,
@@ -259,7 +259,12 @@ impl Builtin {
             "tanh" => Self::Tanh,
             "trunc" => Self::Trunc,
             _ => return None,
-        })
+        };
+        #[cfg(feature = "long-integer")]
+        if !matches!(builtin, Self::Abs | Self::Min | Self::Max | Self::If) {
+            return None;
+        }
+        Some(builtin)
     }
 
     fn parameter_count(self) -> usize {
@@ -440,7 +445,10 @@ impl Parser {
                 .into_iter()
                 .map(rewrite_compile_patterns)
                 .collect(),
+            #[cfg(not(feature = "long-integer"))]
             expression: rewrite_compile_patterns(parsed),
+            #[cfg(feature = "long-integer")]
+            expression: parsed,
             use_degrees,
         });
         Ok(())
@@ -521,15 +529,24 @@ impl Parser {
             *binding = fold_constants(binding.clone(), program.use_degrees, &Self::epsilon());
         }
         let expression = program.expression.clone();
-        if let Some(rewritten) = rewrite_nested_optimizer_expression(&expression) {
-            program.expression = rewritten;
-        } else {
-            program.expression = fold_constants(expression, program.use_degrees, &Self::epsilon());
+        #[cfg(not(feature = "long-integer"))]
+        {
+            if let Some(rewritten) = rewrite_nested_optimizer_expression(&expression) {
+                program.expression = rewritten;
+            } else {
+                program.expression =
+                    fold_constants(expression, program.use_degrees, &Self::epsilon());
+            }
+            for binding in &mut program.inline_bindings {
+                *binding = rewrite_legacy_math_lowering(binding.clone());
+            }
+            program.expression = rewrite_legacy_math_lowering(program.expression.clone());
         }
-        for binding in &mut program.inline_bindings {
-            *binding = rewrite_legacy_math_lowering(binding.clone());
+        #[cfg(feature = "long-integer")]
+        {
+            program.expression =
+                fold_constants(expression, program.use_degrees, &Self::epsilon());
         }
-        program.expression = rewrite_legacy_math_lowering(program.expression.clone());
         let mut function_calls = Vec::new();
         for binding in &program.inline_bindings {
             collect_function_calls(binding, &mut function_calls);
@@ -871,8 +888,18 @@ impl<'a> Grammar<'a> {
     fn parse_or(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_and()?;
         while self.consume(&TokenKind::Or) {
-            let right = self.parse_and()?;
-            left = Expression::Binary(BinaryOperator::Or, Box::new(left), Box::new(right));
+            #[cfg(feature = "long-integer")]
+            {
+                return Err(ParseError {
+                    kind: ParseErrorKind::Syntax,
+                    position: self.current().position,
+                });
+            }
+            #[cfg(not(feature = "long-integer"))]
+            {
+                let right = self.parse_and()?;
+                left = Expression::Binary(BinaryOperator::Or, Box::new(left), Box::new(right));
+            }
         }
         Ok(left)
     }
@@ -880,8 +907,18 @@ impl<'a> Grammar<'a> {
     fn parse_and(&mut self) -> Result<Expression, ParseError> {
         let mut left = self.parse_comparison()?;
         while self.consume(&TokenKind::And) {
-            let right = self.parse_comparison()?;
-            left = Expression::Binary(BinaryOperator::And, Box::new(left), Box::new(right));
+            #[cfg(feature = "long-integer")]
+            {
+                return Err(ParseError {
+                    kind: ParseErrorKind::Syntax,
+                    position: self.current().position,
+                });
+            }
+            #[cfg(not(feature = "long-integer"))]
+            {
+                let right = self.parse_comparison()?;
+                left = Expression::Binary(BinaryOperator::And, Box::new(left), Box::new(right));
+            }
         }
         Ok(left)
     }
@@ -980,8 +1017,19 @@ impl<'a> Grammar<'a> {
             }
         }
         if self.consume(&TokenKind::Power) {
-            let right = self.parse_unary()?;
-            left = Expression::Binary(BinaryOperator::Power, Box::new(left), Box::new(right));
+            #[cfg(feature = "long-integer")]
+            {
+                return Err(ParseError {
+                    kind: ParseErrorKind::Syntax,
+                    position: self.current().position,
+                });
+            }
+            #[cfg(not(feature = "long-integer"))]
+            {
+                let right = self.parse_unary()?;
+                left =
+                    Expression::Binary(BinaryOperator::Power, Box::new(left), Box::new(right));
+            }
         }
         Ok(left)
     }
@@ -1305,7 +1353,14 @@ fn evaluate(
 }
 
 fn truth(value: &Real) -> bool {
-    value.clone().abs() >= 0.5
+    #[cfg(feature = "long-integer")]
+    {
+        !value.is_zero()
+    }
+    #[cfg(not(feature = "long-integer"))]
+    {
+        value.clone().abs() >= 0.5
+    }
 }
 
 fn is_constant_expression(expression: &Expression) -> bool {
@@ -2627,13 +2682,27 @@ fn evaluate_binary(
         BinaryOperator::Multiply => left * right,
         BinaryOperator::Divide => {
             if right == 0.0 {
-                return Err(EvalError::DivisionByZero);
+                #[cfg(feature = "long-integer")]
+                {
+                    return Ok(crate::scalar::from_f64(0.0));
+                }
+                #[cfg(not(feature = "long-integer"))]
+                {
+                    return Err(EvalError::DivisionByZero);
+                }
             }
             left / right
         }
         BinaryOperator::Modulo => {
             if right == 0.0 {
-                return Err(EvalError::DivisionByZero);
+                #[cfg(feature = "long-integer")]
+                {
+                    return Ok(crate::scalar::from_f64(0.0));
+                }
+                #[cfg(not(feature = "long-integer"))]
+                {
+                    return Err(EvalError::DivisionByZero);
+                }
             }
             left % right
         }
@@ -3546,7 +3615,13 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
     }
 }
 
-#[cfg(all(test, not(feature = "float"), not(feature = "long-double"), not(feature = "mpfr")))]
+#[cfg(all(
+    test,
+    not(feature = "float"),
+    not(feature = "long-double"),
+    not(feature = "mpfr"),
+    not(feature = "long-integer")
+))]
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -4735,7 +4810,11 @@ mod tests {
     }
 }
 
-#[cfg(all(test, any(feature = "long-double", feature = "mpfr")))]
+#[cfg(all(
+    test,
+    any(feature = "long-double", feature = "mpfr"),
+    not(feature = "long-integer")
+))]
 mod extended_precision_tests {
     use super::*;
 
@@ -4807,5 +4886,52 @@ mod extended_precision_tests {
         assert_eq!(to_f64(eval("x^0", &[0.25])), 1.0);
         assert_eq!(to_f64(eval("0 * x", &[0.25])), 0.0);
         assert!((to_f64(eval("sin(x)^2 + cos(x)^2", &[0.25])) - 1.0).abs() < 1e-18);
+    }
+}
+
+#[cfg(all(test, feature = "long-integer"))]
+mod integer_tests {
+    use super::*;
+
+    fn eval(expression: &str, x: f64) -> f64 {
+        let mut parser = Parser::new();
+        parser
+            .parse(expression, "x", false)
+            .unwrap_or_else(|error| panic!("{expression}: {error:?}"));
+        crate::real_to_f64(&parser.eval(&[crate::real_from_f64(x)]).unwrap())
+    }
+
+    #[test]
+    fn integer_arithmetic_matches_gmpint_semantics() {
+        assert_eq!(eval("7/3", 0.0), 2.0);
+        assert_eq!(eval("-7/3", 0.0), -2.0);
+        assert_eq!(eval("7%3", 0.0), 1.0);
+        assert_eq!(eval("-7%3", 0.0), -1.0);
+        assert_eq!(eval("5/0", 0.0), 0.0);
+        assert_eq!(eval("5%0", 0.0), 0.0);
+        assert_eq!(eval("0012", 0.0), 10.0);
+        assert_eq!(eval("0x1F", 0.0), 31.0);
+        assert_eq!(eval("if(-1, 7, 9)", 0.0), 7.0);
+        assert_eq!(eval("!5", 0.0), 0.0);
+        assert_eq!(eval("!0", 0.0), 1.0);
+        assert_eq!(eval("min(-3,2)", 0.0), -3.0);
+        assert_eq!(eval("max(-3,2)", 0.0), 2.0);
+        assert_eq!(eval("x/2*2+x%2", 5.0), 5.0);
+        assert_eq!(eval("1=1", 0.0), 1.0);
+        assert_eq!(eval("1!=2", 0.0), 1.0);
+    }
+
+    #[test]
+    fn unsupported_float_syntax_is_rejected() {
+        for expression in [
+            "1.5", "1e3", "2^10", "2^-1", "sin(x)", "sqrt(x)", "int(7/2)", "1&&2", "1||2",
+            "1==1",
+        ] {
+            let mut parser = Parser::new();
+            assert!(
+                parser.parse(expression, "x", false).is_err(),
+                "{expression} must be rejected"
+            );
+        }
     }
 }

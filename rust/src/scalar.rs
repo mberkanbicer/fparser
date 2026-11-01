@@ -15,7 +15,10 @@
 #[cfg(any(
     all(feature = "float", feature = "long-double"),
     all(feature = "float", feature = "mpfr"),
+    all(feature = "float", feature = "long-integer"),
     all(feature = "long-double", feature = "mpfr"),
+    all(feature = "long-double", feature = "long-integer"),
+    all(feature = "mpfr", feature = "long-integer"),
 ))]
 compile_error!("select only one fparser numeric backend");
 
@@ -33,7 +36,15 @@ pub type Real = f128_scalar::F128;
 #[cfg(feature = "mpfr")]
 pub type Real = mpfr_scalar::MpfrReal;
 
-#[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+#[cfg(feature = "long-integer")]
+pub type Real = integer_scalar::IntReal;
+
+#[cfg(not(any(
+    feature = "float",
+    feature = "long-double",
+    feature = "mpfr",
+    feature = "long-integer"
+)))]
 pub type Real = f64;
 
 /// Convert an `f64` literal/constant to the active scalar.
@@ -51,7 +62,16 @@ pub fn from_f64(value: f64) -> Real {
     {
         mpfr_scalar::MpfrReal::from_f64(value)
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        integer_scalar::IntReal::from_f64(value)
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         value
     }
@@ -72,7 +92,16 @@ pub fn from_i64(value: i64) -> Real {
     {
         mpfr_scalar::MpfrReal::from_i64(value)
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        integer_scalar::IntReal::from_i64(value)
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         value as f64
     }
@@ -93,7 +122,16 @@ pub fn from_u64(value: u64) -> Real {
     {
         mpfr_scalar::MpfrReal::from_u64(value)
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        integer_scalar::IntReal::from_u64(value)
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         value as f64
     }
@@ -114,7 +152,16 @@ pub fn to_f64(value: &Real) -> f64 {
     {
         value.to_f64()
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        value.to_f64()
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         *value
     }
@@ -136,7 +183,16 @@ pub fn to_i64(value: &Real) -> Option<i64> {
     {
         value.to_i64()
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        value.to_i64()
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         Some(*value as i64)
     }
@@ -178,7 +234,16 @@ pub fn infinity() -> Real {
     {
         mpfr_scalar::MpfrReal::infinity()
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        integer_scalar::IntReal::zero()
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         f64::INFINITY
     }
@@ -201,7 +266,16 @@ pub fn parse_literal(text: &str) -> Option<Real> {
     {
         mpfr_scalar::MpfrReal::parse(text)
     }
-    #[cfg(not(any(feature = "float", feature = "long-double", feature = "mpfr")))]
+    #[cfg(feature = "long-integer")]
+    {
+        integer_scalar::IntReal::parse(text)
+    }
+    #[cfg(not(any(
+        feature = "float",
+        feature = "long-double",
+        feature = "mpfr",
+        feature = "long-integer"
+    )))]
     {
         text.parse::<f64>().ok()
     }
@@ -781,6 +855,296 @@ mod mpfr_scalar {
     impl DivAssign for MpfrReal {
         fn div_assign(&mut self, rhs: Self) {
             self.0 /= rhs.0;
+        }
+    }
+}
+
+#[cfg(feature = "long-integer")]
+mod integer_scalar {
+    use rug::Integer;
+    use std::cmp::Ordering;
+    use std::ops::{
+        Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign,
+    };
+
+    /// Arbitrary-precision integer scalar used by the `long-integer` backend.
+    ///
+    /// Native `FunctionParser_gmpint` semantics: decimal/octal/hex literals,
+    /// truncating division, remainder with the dividend's sign, exact
+    /// comparisons and integer-only builtins.
+    #[derive(Clone, Debug, PartialEq, PartialOrd)]
+    pub struct IntReal(pub Integer);
+
+    impl IntReal {
+        pub fn zero() -> Self {
+            IntReal(Integer::from(0))
+        }
+
+        pub fn from_f64(value: f64) -> Self {
+            IntReal(Integer::from(value as i64))
+        }
+
+        pub fn from_i64(value: i64) -> Self {
+            IntReal(Integer::from(value))
+        }
+
+        pub fn from_u64(value: u64) -> Self {
+            IntReal(Integer::from(value))
+        }
+
+        pub fn parse(text: &str) -> Option<Self> {
+            let trimmed = text.trim();
+            if let Some(hex) = trimmed
+                .strip_prefix("0x")
+                .or_else(|| trimmed.strip_prefix("0X"))
+            {
+                return Integer::from_str_radix(hex, 16).ok().map(IntReal);
+            }
+            if trimmed.len() > 1 && trimmed.starts_with('0') {
+                // C `strtol(..., 0)` parses a leading zero as octal; a digit
+                // outside 0..7 makes the literal invalid.
+                return Integer::from_str_radix(&trimmed[1..], 8).ok().map(IntReal);
+            }
+            trimmed.parse::<i64>().ok().map(|value| IntReal(Integer::from(value)))
+        }
+
+        pub fn to_f64(&self) -> f64 {
+            self.0.to_f64()
+        }
+
+        pub fn to_i64(&self) -> Option<i64> {
+            self.0.to_i64()
+        }
+
+        pub fn is_zero(&self) -> bool {
+            self.0 == 0
+        }
+
+        pub fn abs(self) -> Self {
+            IntReal(self.0.abs())
+        }
+
+        pub fn fract(self) -> Self {
+            IntReal::zero()
+        }
+
+        pub fn floor(self) -> Self {
+            self
+        }
+
+        pub fn ceil(self) -> Self {
+            self
+        }
+
+        pub fn round(self) -> Self {
+            self
+        }
+
+        pub fn trunc(self) -> Self {
+            self
+        }
+
+        pub fn is_nan(&self) -> bool {
+            false
+        }
+
+        pub fn is_infinite(&self) -> bool {
+            false
+        }
+
+        pub fn is_finite(&self) -> bool {
+            true
+        }
+
+        pub fn to_radians(self) -> Self {
+            self
+        }
+
+        pub fn to_degrees(self) -> Self {
+            self
+        }
+
+        pub fn to_bits(&self) -> u64 {
+            self.to_f64().to_bits()
+        }
+
+        // Float-only operations are unreachable: the integer parser rejects
+        // the corresponding builtins. They exist only to keep the shared
+        // evaluator body compiling.
+        pub fn sqrt(self) -> Self {
+            unimplemented!("sqrt is not available in the long-integer backend")
+        }
+
+        pub fn cbrt(self) -> Self {
+            unimplemented!("cbrt is not available in the long-integer backend")
+        }
+
+        pub fn sin(self) -> Self {
+            unimplemented!("sin is not available in the long-integer backend")
+        }
+
+        pub fn cos(self) -> Self {
+            unimplemented!("cos is not available in the long-integer backend")
+        }
+
+        pub fn tan(self) -> Self {
+            unimplemented!("tan is not available in the long-integer backend")
+        }
+
+        pub fn asin(self) -> Self {
+            unimplemented!("asin is not available in the long-integer backend")
+        }
+
+        pub fn acos(self) -> Self {
+            unimplemented!("acos is not available in the long-integer backend")
+        }
+
+        pub fn atan(self) -> Self {
+            unimplemented!("atan is not available in the long-integer backend")
+        }
+
+        pub fn atan2(self, _other: Self) -> Self {
+            unimplemented!("atan2 is not available in the long-integer backend")
+        }
+
+        pub fn sinh(self) -> Self {
+            unimplemented!("sinh is not available in the long-integer backend")
+        }
+
+        pub fn cosh(self) -> Self {
+            unimplemented!("cosh is not available in the long-integer backend")
+        }
+
+        pub fn tanh(self) -> Self {
+            unimplemented!("tanh is not available in the long-integer backend")
+        }
+
+        pub fn exp(self) -> Self {
+            unimplemented!("exp is not available in the long-integer backend")
+        }
+
+        pub fn ln(self) -> Self {
+            unimplemented!("log is not available in the long-integer backend")
+        }
+
+        pub fn log10(self) -> Self {
+            unimplemented!("log10 is not available in the long-integer backend")
+        }
+
+        pub fn log2(self) -> Self {
+            unimplemented!("log2 is not available in the long-integer backend")
+        }
+
+        pub fn powf(self, _exponent: Self) -> Self {
+            unimplemented!("pow is not available in the long-integer backend")
+        }
+    }
+
+    impl From<f64> for IntReal {
+        fn from(value: f64) -> Self {
+            Self::from_f64(value)
+        }
+    }
+
+    impl From<i64> for IntReal {
+        fn from(value: i64) -> Self {
+            Self::from_i64(value)
+        }
+    }
+
+    impl From<u64> for IntReal {
+        fn from(value: u64) -> Self {
+            Self::from_u64(value)
+        }
+    }
+
+    impl From<bool> for IntReal {
+        fn from(value: bool) -> Self {
+            Self::from_f64(if value { 1.0 } else { 0.0 })
+        }
+    }
+
+    impl PartialEq<f64> for IntReal {
+        fn eq(&self, other: &f64) -> bool {
+            self.0 == Integer::from(*other as i64)
+        }
+    }
+
+    impl PartialOrd<f64> for IntReal {
+        fn partial_cmp(&self, other: &f64) -> Option<Ordering> {
+            self.0.partial_cmp(&Integer::from(*other as i64))
+        }
+    }
+
+    macro_rules! int_binop {
+        ($($trait:ident, $method:ident, $op:tt;)*) => {
+            $(
+                impl $trait for IntReal {
+                    type Output = IntReal;
+                    fn $method(self, rhs: IntReal) -> IntReal {
+                        IntReal(self.0 $op rhs.0)
+                    }
+                }
+
+                impl $trait<f64> for IntReal {
+                    type Output = IntReal;
+                    fn $method(self, rhs: f64) -> IntReal {
+                        IntReal(self.0 $op Integer::from(rhs as i64))
+                    }
+                }
+
+                impl $trait<IntReal> for f64 {
+                    type Output = IntReal;
+                    fn $method(self, rhs: IntReal) -> IntReal {
+                        IntReal(Integer::from(self as i64) $op rhs.0)
+                    }
+                }
+            )*
+        };
+    }
+
+    int_binop! {
+        Add, add, +;
+        Sub, sub, -;
+        Mul, mul, *;
+        Div, div, /;
+        Rem, rem, %;
+    }
+
+    impl Neg for IntReal {
+        type Output = IntReal;
+        fn neg(self) -> IntReal {
+            IntReal(-self.0)
+        }
+    }
+
+    impl AddAssign for IntReal {
+        fn add_assign(&mut self, rhs: IntReal) {
+            self.0 += rhs.0;
+        }
+    }
+
+    impl SubAssign for IntReal {
+        fn sub_assign(&mut self, rhs: IntReal) {
+            self.0 -= rhs.0;
+        }
+    }
+
+    impl MulAssign for IntReal {
+        fn mul_assign(&mut self, rhs: IntReal) {
+            self.0 *= rhs.0;
+        }
+    }
+
+    impl DivAssign for IntReal {
+        fn div_assign(&mut self, rhs: IntReal) {
+            self.0 /= rhs.0;
+        }
+    }
+
+    impl RemAssign for IntReal {
+        fn rem_assign(&mut self, rhs: IntReal) {
+            self.0 %= rhs.0;
         }
     }
 }
