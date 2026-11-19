@@ -23,9 +23,7 @@
 compile_error!("select only one fparser numeric backend");
 
 #[cfg(all(feature = "long-double", target_env = "msvc"))]
-compile_error!(
-    "the long-double backend needs libquadmath; build it on a GNU/Clang target"
-);
+compile_error!("the long-double backend needs libquadmath; build it on a GNU/Clang target");
 
 #[cfg(feature = "float")]
 pub type Real = f32;
@@ -905,7 +903,10 @@ mod integer_scalar {
                 // outside 0..7 makes the literal invalid.
                 return Integer::from_str_radix(&trimmed[1..], 8).ok().map(IntReal);
             }
-            trimmed.parse::<i64>().ok().map(|value| IntReal(Integer::from(value)))
+            trimmed
+                .parse::<i64>()
+                .ok()
+                .map(|value| IntReal(Integer::from(value)))
         }
 
         pub fn to_f64(&self) -> f64 {
@@ -1148,4 +1149,3 @@ mod integer_scalar {
         }
     }
 }
-

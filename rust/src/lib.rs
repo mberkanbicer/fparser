@@ -4,16 +4,13 @@ use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-fn default_epsilon() -> Real {
-    crate::scalar::from_f64(1.0e-12)
-}
-pub use crate::scalar::Real;
 /// Convert an `f64` into the active parser scalar (public for harnesses).
 pub use crate::scalar::from_f64 as real_from_f64;
-/// Convert the active parser scalar to `f64` (public for harnesses).
-pub use crate::scalar::to_f64 as real_to_f64;
 /// Render the active parser scalar with a fixed number of decimal digits.
 pub use crate::scalar::to_decimal as real_to_decimal;
+/// Convert the active parser scalar to `f64` (public for harnesses).
+pub use crate::scalar::to_f64 as real_to_f64;
+pub use crate::scalar::Real;
 static EPSILON_BITS: AtomicU64 = AtomicU64::new(1.0e-12f64.to_bits());
 
 type UserFunction = Arc<dyn Fn(&[Real]) -> Real + Send + Sync>;
@@ -75,7 +72,7 @@ pub struct ParseError {
     pub position: usize,
 }
 
-const ParseErrorMessage: &[&str; 14] = &[
+const PARSE_ERROR_MESSAGE: &[&str; 14] = &[
     "Syntax error",
     "Mismatched parenthesis",
     "Missing ')'",
@@ -94,7 +91,7 @@ const ParseErrorMessage: &[&str; 14] = &[
 
 impl fmt::Display for ParseError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let msg = ParseErrorMessage[self.kind.legacy_code() as usize];
+        let msg = PARSE_ERROR_MESSAGE[self.kind.legacy_code() as usize];
         write!(formatter, "{0} at byte {1}", msg, self.position)
     }
 }
@@ -544,8 +541,7 @@ impl Parser {
         }
         #[cfg(feature = "long-integer")]
         {
-            program.expression =
-                fold_constants(expression, program.use_degrees, &Self::epsilon());
+            program.expression = fold_constants(expression, program.use_degrees, &Self::epsilon());
         }
         let mut function_calls = Vec::new();
         for binding in &program.inline_bindings {
@@ -1007,7 +1003,7 @@ impl<'a> Grammar<'a> {
         let mut left = self.parse_primary()?;
         if let TokenKind::Identifier(name) = &self.current().kind {
             if let Some(value) = self.units.get(name) {
-                let unit = value.clone();
+                let unit = *value;
                 self.advance();
                 left = Expression::Binary(
                     BinaryOperator::Multiply,
@@ -1027,8 +1023,7 @@ impl<'a> Grammar<'a> {
             #[cfg(not(feature = "long-integer"))]
             {
                 let right = self.parse_unary()?;
-                left =
-                    Expression::Binary(BinaryOperator::Power, Box::new(left), Box::new(right));
+                left = Expression::Binary(BinaryOperator::Power, Box::new(left), Box::new(right));
             }
         }
         Ok(left)
@@ -1072,7 +1067,7 @@ impl<'a> Grammar<'a> {
                 } else if let Some(index) = self.inline_indices.get(&name) {
                     Ok(Expression::Inline(*index))
                 } else if let Some(value) = self.constants.get(&name) {
-                    Ok(Expression::Number(value.clone()))
+                    Ok(Expression::Number(*value))
                 } else if self.units.contains_key(&name) {
                     Err(ParseError {
                         kind: ParseErrorKind::Syntax,
@@ -1211,12 +1206,12 @@ fn evaluate(
     shared_values: &mut HashMap<usize, Result<Real, EvalError>>,
 ) -> Result<Real, EvalError> {
     match expression {
-        Expression::Number(value) => Ok(value.clone()),
-        Expression::Variable(index) => Ok(variables[*index].clone()),
-        Expression::Inline(index) => Ok(inline_values[*index].clone()),
+        Expression::Number(value) => Ok(*value),
+        Expression::Variable(index) => Ok(variables[*index]),
+        Expression::Inline(index) => Ok(inline_values[*index]),
         Expression::Shared(index, expression) => {
             if let Some(value) = shared_values.get(index) {
-                return value.clone();
+                return *value;
             }
             let value = evaluate(
                 expression,
@@ -1226,7 +1221,7 @@ fn evaluate(
                 epsilon,
                 shared_values,
             );
-            shared_values.insert(*index, value.clone());
+            shared_values.insert(*index, value);
             value
         }
         Expression::Unary(operator, expression) => {
@@ -1359,7 +1354,7 @@ fn truth(value: &Real) -> bool {
     }
     #[cfg(not(feature = "long-integer"))]
     {
-        value.clone().abs() >= 0.5
+        (*value).abs() >= 0.5
     }
 }
 
@@ -1675,7 +1670,7 @@ fn rewrite_signed_power(argument: &Expression, exponent: Real) -> Expression {
         Expression::Binary(
             BinaryOperator::Power,
             Box::new(Expression::Builtin(Builtin::Abs, vec![argument.clone()])),
-            Box::new(Expression::Number(exponent.clone())),
+            Box::new(Expression::Number(exponent)),
         )
     };
     Expression::Builtin(
@@ -1900,7 +1895,7 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
                             Builtin::Log10 => crate::scalar::consts::log10_e(),
                             _ => unreachable!(),
                         };
-                        let coefficient = crate::scalar::consts::log10_e().ln() * base_coefficient.clone();
+                        let coefficient = crate::scalar::consts::log10_e().ln() * base_coefficient;
                         if *inner == Builtin::Log2 && matches!(outer, Builtin::Cbrt | Builtin::Sqrt)
                         {
                             let adjusted_log = Expression::Binary(
@@ -1932,7 +1927,7 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
                             Expression::Binary(
                                 BinaryOperator::Multiply,
                                 Box::new(logarithm),
-                                Box::new(Expression::Number(base_coefficient.clone())),
+                                Box::new(Expression::Number(base_coefficient)),
                             )
                         };
                         return Some(Expression::Builtin(
@@ -2093,7 +2088,10 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
                 middle_arguments.as_slice()
             {
                 if let [argument @ Expression::Variable(_)] = inner_arguments.as_slice() {
-                    return Some(rewrite_signed_power(argument, crate::scalar::from_f64(1.0 / 12.0)));
+                    return Some(rewrite_signed_power(
+                        argument,
+                        crate::scalar::from_f64(1.0 / 12.0),
+                    ));
                 }
             }
         }
@@ -2102,7 +2100,10 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
                 middle_arguments.as_slice()
             {
                 if let [argument @ Expression::Variable(_)] = inner_arguments.as_slice() {
-                    return Some(rewrite_signed_power(argument, crate::scalar::from_f64(1.0 / 12.0)));
+                    return Some(rewrite_signed_power(
+                        argument,
+                        crate::scalar::from_f64(1.0 / 12.0),
+                    ));
                 }
             }
         }
@@ -2396,7 +2397,11 @@ fn rewrite_nested_optimizer_expression(expression: &Expression) -> Option<Expres
             );
             return Some(Expression::Builtin(
                 Builtin::If,
-                vec![near_zero, Expression::Number(crate::scalar::from_f64(-0.0)), expression.clone()],
+                vec![
+                    near_zero,
+                    Expression::Number(crate::scalar::from_f64(-0.0)),
+                    expression.clone(),
+                ],
             ));
         }
     }
@@ -2712,12 +2717,12 @@ fn evaluate_binary(
             }
             evaluate_power(left, right, epsilon)
         }
-        BinaryOperator::Equal => crate::scalar::from_bool((left - right).abs() <= epsilon.clone()),
-        BinaryOperator::NotEqual => crate::scalar::from_bool((left - right).abs() > epsilon.clone()),
-        BinaryOperator::Less => crate::scalar::from_bool(left < right - epsilon.clone()),
-        BinaryOperator::LessOrEqual => crate::scalar::from_bool(left <= right + epsilon.clone()),
-        BinaryOperator::Greater => crate::scalar::from_bool(right < left - epsilon.clone()),
-        BinaryOperator::GreaterOrEqual => crate::scalar::from_bool(right <= left + epsilon.clone()),
+        BinaryOperator::Equal => crate::scalar::from_bool((left - right).abs() <= *epsilon),
+        BinaryOperator::NotEqual => crate::scalar::from_bool((left - right).abs() > *epsilon),
+        BinaryOperator::Less => crate::scalar::from_bool(left < right - *epsilon),
+        BinaryOperator::LessOrEqual => crate::scalar::from_bool(left <= right + *epsilon),
+        BinaryOperator::Greater => crate::scalar::from_bool(right < left - *epsilon),
+        BinaryOperator::GreaterOrEqual => crate::scalar::from_bool(right <= left + *epsilon),
         BinaryOperator::And => crate::scalar::from_bool(truth(&left) && truth(&right)),
         BinaryOperator::Or => crate::scalar::from_bool(truth(&left) || truth(&right)),
     })
@@ -2727,9 +2732,9 @@ fn evaluate_power(base: Real, exponent: Real, epsilon: &Real) -> Real {
     if base == 1.0 {
         return crate::scalar::from_f64(1.0);
     }
-    if let Some(integer_exponent) = legacy_long_integer(exponent.clone()) {
+    if let Some(integer_exponent) = legacy_long_integer(exponent) {
         let magnitude = integer_exponent.unsigned_abs();
-        let value = integer_power(base.clone(), magnitude);
+        let value = integer_power(base, magnitude);
         return if integer_exponent < 0 {
             1.0 / value
         } else {
@@ -2738,20 +2743,20 @@ fn evaluate_power(base: Real, exponent: Real, epsilon: &Real) -> Real {
     }
     if exponent >= 0.0 {
         if base > 0.0 {
-            return (base.clone().ln() * exponent.clone()).exp();
+            return (base.ln() * exponent).exp();
         }
         if base == 0.0 {
             return crate::scalar::from_f64(0.0);
         }
-        if !is_integer_with_epsilon(exponent.clone() * 16.0, epsilon) {
-            return -((-base.clone()).ln() * exponent.clone()).exp();
+        if !is_integer_with_epsilon(exponent * 16.0, epsilon) {
+            return -((-base).ln() * exponent).exp();
         }
     } else {
         if base > 0.0 {
-            return ((1.0 / base.clone()).ln() * -exponent.clone()).exp();
+            return ((1.0 / base).ln() * -exponent).exp();
         }
-        if base < 0.0 && !is_integer_with_epsilon(exponent.clone() * -16.0, epsilon) {
-            return -((-1.0 / base.clone()).ln() * -exponent.clone()).exp();
+        if base < 0.0 && !is_integer_with_epsilon(exponent * -16.0, epsilon) {
+            return -((-1.0 / base).ln() * -exponent).exp();
         }
     }
     base.powf(exponent)
@@ -2759,7 +2764,7 @@ fn evaluate_power(base: Real, exponent: Real, epsilon: &Real) -> Real {
 
 #[cfg(any(windows, target_pointer_width = "32"))]
 fn legacy_long_integer(value: Real) -> Option<i64> {
-    if value.clone().fract() == 0.0
+    if value.fract() == 0.0
         && value >= crate::scalar::from_i64(i32::MIN as i64)
         && value <= crate::scalar::from_i64(i32::MAX as i64)
     {
@@ -2786,10 +2791,10 @@ fn integer_power(base: Real, mut exponent: u64) -> Real {
     let mut result = crate::scalar::from_f64(1.0);
     while exponent != 0 {
         if exponent & 1 != 0 {
-            result *= base.clone();
+            result *= base;
             exponent -= 1;
         } else {
-            base = base.clone() * base;
+            base = base * base;
             exponent /= 2;
         }
     }
@@ -2797,7 +2802,7 @@ fn integer_power(base: Real, mut exponent: u64) -> Real {
 }
 
 fn is_integer_with_epsilon(value: Real, epsilon: &Real) -> bool {
-    (value.clone() - value.floor()).abs() <= *epsilon
+    (value - value.floor()).abs() <= *epsilon
 }
 
 fn evaluate_builtin(
@@ -2807,7 +2812,7 @@ fn evaluate_builtin(
     epsilon: &Real,
     validate_errors: bool,
 ) -> Result<Real, EvalError> {
-    let mut first = values[0].clone();
+    let mut first = values[0];
     if use_degrees && builtin.angle_input() {
         first = first.to_radians();
     }
@@ -2823,7 +2828,7 @@ fn evaluate_builtin(
             if validate_errors && first < 1.0 {
                 return Err(EvalError::InvalidInverseTrigonometricInput);
             }
-            (first.clone() + (first.clone() * first.clone() - 1.0).sqrt()).ln()
+            (first + (first * first - 1.0).sqrt()).ln()
         }
         Builtin::Asin => {
             if validate_errors && (first < -1.0 || first > 1.0) {
@@ -2831,14 +2836,14 @@ fn evaluate_builtin(
             }
             first.asin()
         }
-        Builtin::Asinh => (first.clone() + (first.clone() * first.clone() + 1.0).sqrt()).ln(),
+        Builtin::Asinh => (first + (first * first + 1.0).sqrt()).ln(),
         Builtin::Atan => first.atan(),
-        Builtin::Atan2 => values[0].clone().atan2(values[1].clone()),
+        Builtin::Atan2 => values[0].atan2(values[1]),
         Builtin::Atanh => {
             if validate_errors && (first <= -1.0 || first >= 1.0) {
                 return Err(EvalError::InvalidInverseTrigonometricInput);
             }
-            0.5 * ((1.0 + first.clone()) / (1.0 - first.clone())).ln()
+            0.5 * ((1.0 + first) / (1.0 - first)).ln()
         }
         Builtin::Cbrt => {
             if first > 0.0 {
@@ -2869,10 +2874,7 @@ fn evaluate_builtin(
         Builtin::Exp => first.exp(),
         Builtin::Exp2 => evaluate_power(crate::scalar::from_f64(2.0), first, epsilon),
         Builtin::Floor => first.floor(),
-        Builtin::Hypot => {
-            (values[0].clone() * values[0].clone() + values[1].clone() * values[1].clone())
-                .sqrt()
-        }
+        Builtin::Hypot => (values[0] * values[0] + values[1] * values[1]).sqrt(),
         Builtin::If => unreachable!("conditional evaluation is handled before arguments"),
         Builtin::Int => {
             if first < 0.0 {
@@ -2900,23 +2902,23 @@ fn evaluate_builtin(
         }
         Builtin::Max => {
             if values[0] > values[1] {
-                values[0].clone()
+                values[0]
             } else {
-                values[1].clone()
+                values[1]
             }
         }
         Builtin::Min => {
             if values[0] < values[1] {
-                values[0].clone()
+                values[0]
             } else {
-                values[1].clone()
+                values[1]
             }
         }
         Builtin::Pow => {
             if validate_errors && values[0] == 0.0 && values[1] < 0.0 {
                 return Err(EvalError::InvalidLogarithmOrPower);
             }
-            evaluate_power(values[0].clone(), values[1].clone(), epsilon)
+            evaluate_power(values[0], values[1], epsilon)
         }
         Builtin::Sec => {
             let cosine = first.cos();
@@ -2980,11 +2982,11 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: &Real) -> 
             let left = fold_constants(*left, use_degrees, epsilon);
             let right = fold_constants(*right, use_degrees, epsilon);
             let left_number = match &left {
-                Expression::Number(value) => Some(value.clone()),
+                Expression::Number(value) => Some(*value),
                 _ => None,
             };
             let right_number = match &right {
-                Expression::Number(value) => Some(value.clone()),
+                Expression::Number(value) => Some(*value),
                 _ => None,
             };
             match operator {
@@ -3012,13 +3014,19 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: &Real) -> 
                 BinaryOperator::GreaterOrEqual if same_expression(&left, &right) => {
                     return Expression::Number(crate::scalar::from_f64(1.0));
                 }
-                BinaryOperator::Divide if left_number == Some(crate::scalar::from_f64(0.0)) && right_number == Some(crate::scalar::from_f64(0.0)) => {
+                BinaryOperator::Divide
+                    if left_number == Some(crate::scalar::from_f64(0.0))
+                        && right_number == Some(crate::scalar::from_f64(0.0)) =>
+                {
                     return Expression::Number(crate::scalar::from_f64(0.0));
                 }
                 BinaryOperator::Divide if right_number == Some(crate::scalar::from_f64(0.0)) => {
                     return Expression::Number(crate::scalar::from_f64(0.0));
                 }
-                BinaryOperator::Divide if left_number == Some(crate::scalar::from_f64(0.0)) && right_number.is_none() => {
+                BinaryOperator::Divide
+                    if left_number == Some(crate::scalar::from_f64(0.0))
+                        && right_number.is_none() =>
+                {
                     if let Some(value) = left_number {
                         return Expression::Number(value);
                     }
@@ -3026,61 +3034,89 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: &Real) -> 
                 BinaryOperator::Divide if same_expression(&left, &right) => {
                     return Expression::Number(crate::scalar::from_f64(1.0));
                 }
-                BinaryOperator::Add if right_number == Some(crate::scalar::from_f64(0.0)) && left_number.is_none() => {
+                BinaryOperator::Add
+                    if right_number == Some(crate::scalar::from_f64(0.0))
+                        && left_number.is_none() =>
+                {
                     return left;
                 }
-                BinaryOperator::Add if left_number == Some(crate::scalar::from_f64(0.0)) && right_number.is_none() => {
+                BinaryOperator::Add
+                    if left_number == Some(crate::scalar::from_f64(0.0))
+                        && right_number.is_none() =>
+                {
                     return right;
                 }
-                BinaryOperator::Multiply if left_number == Some(crate::scalar::from_f64(1.0)) && right_number.is_none() => {
+                BinaryOperator::Multiply
+                    if left_number == Some(crate::scalar::from_f64(1.0))
+                        && right_number.is_none() =>
+                {
                     return right;
                 }
-                BinaryOperator::Multiply if right_number == Some(crate::scalar::from_f64(1.0)) && left_number.is_none() => {
+                BinaryOperator::Multiply
+                    if right_number == Some(crate::scalar::from_f64(1.0))
+                        && left_number.is_none() =>
+                {
                     return left;
                 }
-                BinaryOperator::Subtract if left_number == Some(crate::scalar::from_f64(0.0)) && right_number.is_none() => {
+                BinaryOperator::Subtract
+                    if left_number == Some(crate::scalar::from_f64(0.0))
+                        && right_number.is_none() =>
+                {
                     return Expression::Unary(UnaryOperator::Negate, Box::new(right));
                 }
-                BinaryOperator::Divide if right_number == Some(crate::scalar::from_f64(1.0)) && left_number.is_none() => {
+                BinaryOperator::Divide
+                    if right_number == Some(crate::scalar::from_f64(1.0))
+                        && left_number.is_none() =>
+                {
                     return left;
                 }
-                BinaryOperator::Power if right_number == Some(crate::scalar::from_f64(1.0)) && left_number.is_none() => {
+                BinaryOperator::Power
+                    if right_number == Some(crate::scalar::from_f64(1.0))
+                        && left_number.is_none() =>
+                {
                     return left;
                 }
-                BinaryOperator::Power if right_number == Some(crate::scalar::from_f64(0.0)) && left_number.is_none() => {
+                BinaryOperator::Power
+                    if right_number == Some(crate::scalar::from_f64(0.0))
+                        && left_number.is_none() =>
+                {
                     return Expression::Number(crate::scalar::from_f64(1.0));
                 }
-                BinaryOperator::Power if left_number == Some(crate::scalar::from_f64(1.0)) && right_number.is_none() => {
+                BinaryOperator::Power
+                    if left_number == Some(crate::scalar::from_f64(1.0))
+                        && right_number.is_none() =>
+                {
                     return Expression::Number(crate::scalar::from_f64(1.0));
                 }
                 BinaryOperator::Power
                     if left_number == Some(crate::scalar::from_f64(0.0))
-                        && right_number.clone().is_some_and(|value| value < 0.0) =>
+                        && right_number.is_some_and(|value| value < 0.0) =>
                 {
                     return Expression::Number(crate::scalar::from_f64(0.0));
                 }
                 BinaryOperator::Multiply
-                    if (left_number == Some(crate::scalar::from_f64(0.0)) || right_number == Some(crate::scalar::from_f64(0.0)))
+                    if (left_number == Some(crate::scalar::from_f64(0.0))
+                        || right_number == Some(crate::scalar::from_f64(0.0)))
                         && (!(left_number.is_some() && right_number.is_some())
-                            || left_number.clone().is_some_and(|value| !value.is_finite())
-                            || right_number.clone().is_some_and(|value| !value.is_finite())) =>
+                            || left_number.is_some_and(|value| !value.is_finite())
+                            || right_number.is_some_and(|value| !value.is_finite())) =>
                 {
-                    if let Some(value) = left_number.clone().filter(|value| *value == 0.0) {
+                    if let Some(value) = left_number.filter(|value| *value == 0.0) {
                         return Expression::Number(value);
                     }
-                    if let Some(value) = right_number.clone().filter(|value| *value == 0.0) {
+                    if let Some(value) = right_number.filter(|value| *value == 0.0) {
                         return Expression::Number(value);
                     }
                 }
                 BinaryOperator::And
-                    if left_number.clone().is_some_and(|value| !truth(&value))
-                        || right_number.clone().is_some_and(|value| !truth(&value)) =>
+                    if left_number.is_some_and(|value| !truth(&value))
+                        || right_number.is_some_and(|value| !truth(&value)) =>
                 {
                     return Expression::Number(crate::scalar::from_f64(0.0));
                 }
                 BinaryOperator::Or
-                    if left_number.clone().is_some_and(|value| truth(&value))
-                        || right_number.clone().is_some_and(|value| truth(&value)) =>
+                    if left_number.is_some_and(|value| truth(&value))
+                        || right_number.is_some_and(|value| truth(&value)) =>
                 {
                     return Expression::Number(crate::scalar::from_f64(1.0));
                 }
@@ -3089,12 +3125,7 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: &Real) -> 
             if let (Expression::Number(left_value), Expression::Number(right_value)) =
                 (&left, &right)
             {
-                if let Ok(value) = evaluate_binary(
-                    operator,
-                    left_value.clone(),
-                    right_value.clone(),
-                    epsilon,
-                ) {
+                if let Ok(value) = evaluate_binary(operator, *left_value, *right_value, epsilon) {
                     return Expression::Number(value);
                 }
             }
@@ -3330,7 +3361,7 @@ fn fold_constants(expression: Expression, use_degrees: bool, epsilon: &Real) -> 
                     let values = arguments
                         .iter()
                         .map(|argument| match argument {
-                            Expression::Number(value) => value.clone(),
+                            Expression::Number(value) => *value,
                             _ => unreachable!(),
                         })
                         .collect::<Vec<_>>();
@@ -3555,7 +3586,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
                             let value = if *value == crate::scalar::consts::ln_2() {
                                 legacy_sqrt_exp2_factor()
                             } else {
-                                value.clone() * crate::scalar::from_f64(0.5)
+                                *value * crate::scalar::from_f64(0.5)
                             };
                             return Expression::Builtin(
                                 Builtin::Exp,
@@ -3579,7 +3610,7 @@ fn rewrite_legacy_math_lowering(expression: Expression) -> Expression {
                         if *factor > 0.0 {
                             return Expression::Binary(
                                 BinaryOperator::Multiply,
-                                Box::new(Expression::Number(factor.clone().sqrt())),
+                                Box::new(Expression::Number((*factor).sqrt())),
                                 Box::new(Expression::Builtin(
                                     Builtin::Sqrt,
                                     vec![Expression::Builtin(Builtin::Log, inner.clone())],
@@ -4384,8 +4415,14 @@ mod tests {
         let cases = [
             ("sqrt(exp(log2(x)))", crate::scalar::consts::log2_e() / 2.0),
             ("sqrt(exp2(log(x)))", crate::scalar::consts::ln_2() / 2.0),
-            ("sqrt(exp2(log10(x)))", crate::scalar::consts::log10_2() / 2.0),
-            ("sqrt(exp(log10(x)))", crate::scalar::consts::log10_e() / 2.0),
+            (
+                "sqrt(exp2(log10(x)))",
+                crate::scalar::consts::log10_2() / 2.0,
+            ),
+            (
+                "sqrt(exp(log10(x)))",
+                crate::scalar::consts::log10_e() / 2.0,
+            ),
         ];
         for (expression, exponent) in cases {
             let mut parser = parse(expression, "x", false);
@@ -4924,8 +4961,7 @@ mod integer_tests {
     #[test]
     fn unsupported_float_syntax_is_rejected() {
         for expression in [
-            "1.5", "1e3", "2^10", "2^-1", "sin(x)", "sqrt(x)", "int(7/2)", "1&&2", "1||2",
-            "1==1",
+            "1.5", "1e3", "2^10", "2^-1", "sin(x)", "sqrt(x)", "int(7/2)", "1&&2", "1||2", "1==1",
         ] {
             let mut parser = Parser::new();
             assert!(
